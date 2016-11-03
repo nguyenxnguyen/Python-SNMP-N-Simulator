@@ -13,7 +13,8 @@ class UimBuild(object):
     def __init__(self, *args, **kwargs):
         pass
 
-    def get_build(self, nim_path, tc_username, tc_password):
+    @staticmethod
+    def get_build(nim_path, tc_username, tc_password):
         folder = '%s/for_testing_DCD/' % nim_path
         if not os.path.exists(folder):
             os.mkdir(folder)
@@ -93,7 +94,8 @@ class UimDevice(object):
     def __init__(self, *args, **kwargs):
         pass
 
-    def discover(self, robot_path, username, password, table, timeout, nim_path, folder):
+    @staticmethod
+    def discover(robot_path, username, password, table, timeout, nim_path, folder):
         log_detail = ''
         if password == '':
             password = '1QAZ2wsx'
@@ -137,7 +139,8 @@ class UimDevice(object):
         log_open.write(log_detail)
         log_open.close()
 
-    def rediscover(self, robot_path, username, password, table, timeout, nim_path, folder):
+    @staticmethod
+    def rediscover(robot_path, username, password, table, timeout, nim_path, folder):
         if password == '':
             password = '1QAZ2wsx'
         #folder = os.path.dirname(os.path.abspath(__file__))
@@ -175,7 +178,8 @@ class UimDevice(object):
         cmd = 'start cmd.exe /c \"%s\"' % f_path
         os.system(cmd)
 
-    def rm_device(self, robot_path, username, password, table, nim_path):
+    @staticmethod
+    def rm_device(robot_path, username, password, table, nim_path):
         #username = user_entry.get()
         #password = pass_entry.get()
         if password == '':
@@ -190,7 +194,8 @@ class UimDevice(object):
                          % (nim_path, username, password, robot_path, ip_address)
             os.system(cmd_remove)
 
-    def get_component(self, username, password, ip_addresses, folder, nim_path):
+    @staticmethod
+    def get_component(username, password, ip_addresses, folder, nim_path):
         if password == '':
             password = '1QAZ2wsx'
         folder_component = '%s/Components' % folder

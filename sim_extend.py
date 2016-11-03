@@ -9,7 +9,8 @@ class SimExtend(object):
     def __init__(self, *args, **kwargs):
         pass
 
-    def stop_sim(self, table):
+    @staticmethod
+    def stop_sim(table):
         #table_return = []
         for row in table:
             row = list(row)
@@ -23,7 +24,8 @@ class SimExtend(object):
             yield row
         #os.system('cls')
 
-    def snmp_get_sysoid(self, folder, table):
+    @staticmethod
+    def snmp_get_sysoid(folder, table):
         snmpget = os.path.dirname(os.path.abspath(__file__)) + "/" + 'SnmpGet.exe'
         msg_conflict = ''
         log_detail = ''
@@ -71,7 +73,8 @@ class SimExtend(object):
             tkMessageBox.showwarning(title='Conflict!', message=msg_conflict)
         #return table_return
 
-    def run_sim(self, v1, v2c, ranDm, table, folder):
+    @staticmethod
+    def run_sim(v1, v2c, ranDm, table, folder):
         # Weird problem. The $NH_HOME/bin/mksnt dir is usually in the path,
         # and start.exe is in there and messes up our attempt to do the windows
         # start thing (this doesn't appear to be an actual program).

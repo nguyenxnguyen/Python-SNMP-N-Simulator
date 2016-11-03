@@ -75,7 +75,8 @@ class MainApplication(Frame):
         else:
             self.robot = ''
 
-    def update_python_sim(self):
+    @staticmethod
+    def update_python_sim():
         folder = os.path.dirname(os.path.abspath(__file__))
         file_path = folder + '/update_python_sim.py'
         echo_off = '@echo off'
@@ -102,7 +103,8 @@ class MainApplication(Frame):
         timeout = timeout_entry.get()
         AccessFile(self).write_setting_XML(nim_path, schedule_time, timeout)
 
-    def new_ip(self, i1, i2, i3):
+    @staticmethod
+    def new_ip(i1, i2, i3):
         i1 = int(i1)
         i2 = int(i2)
         i3 = int(i3)
@@ -383,7 +385,8 @@ class MainApplication(Frame):
             table_p = mlb.get(0, mlb.size() - 1)
             UimDevice(self).rediscover(robot_path_p, username_p, password_p, table_p, timeout_p, nim_path_p, folder_p)
 
-    def get_hosts(self):
+    @staticmethod
+    def get_hosts():
         username_p = user_entry.get()
         password_p = pass_entry.get()
         robot_path_p = robot_entry.get()
@@ -478,7 +481,8 @@ class MainApplication(Frame):
         micro_seconds = delta_time.seconds*1000
         root.after(micro_seconds, self.schedule)
 
-    def parse_XML(self):
+    @staticmethod
+    def parse_XML():
         pass
 
 

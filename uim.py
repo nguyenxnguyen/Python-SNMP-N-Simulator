@@ -81,12 +81,6 @@ class UimBuild(object):
         cmd_2 = 'start cmd.exe /c \"%s\"' % f_path2
         os.system(cmd_1)
         os.system(cmd_2)
-        if os.path.exists(f_path1):
-            sleep(5)
-            os.remove(f_path1)
-        if os.path.exists(f_path2):
-            sleep(5)
-            os.remove(f_path2)
         #os.system('cls')
 
 
@@ -103,6 +97,10 @@ class UimDevice(object):
         #    table = mlb.get(0, mlb.size() - 1)
         #folder = os.path.dirname(os.path.abspath(__file__))
         folder_temp = '%s/Temp' % folder
+        if not os.path.exists(folder_temp):
+            os.mkdir(folder_temp)
+        else:
+            pass
         f_path = '%s/cmd_snmpc_discover.bat' % folder_temp
         f_open = open(f_path, 'w')
         for row in table:
@@ -131,13 +129,10 @@ class UimDevice(object):
         f_open.close()
         cmd = 'start cmd.exe /c \"%s\"' % f_path
         os.system(cmd)
-        if os.path.exists(f_path):
-            sleep(5)
-            os.remove(f_path)
-        log_path = folder + "/" + "List_of_Discovered_Devices.csv"
-        log_open = open(log_path, 'w')
-        log_open.write(log_detail)
-        log_open.close()
+        #log_path = folder + "/" + "List_of_Discovered_Devices.csv"
+        #log_open = open(log_path, 'w')
+        #log_open.write(log_detail)
+        #log_open.close()
 
     @staticmethod
     def rediscover(robot_path, username, password, table, timeout, nim_path, folder):
@@ -145,6 +140,10 @@ class UimDevice(object):
             password = '1QAZ2wsx'
         #folder = os.path.dirname(os.path.abspath(__file__))
         folder_temp = '%s/Temp' % folder
+        if not os.path.exists(folder_temp):
+            os.mkdir(folder_temp)
+        else:
+            pass
         f_path = '%s/cmd_snmpc_rediscover.bat' % folder_temp
         f_open = open(f_path, 'w')
         for row in table:

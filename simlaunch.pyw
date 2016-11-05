@@ -27,11 +27,11 @@ def auto_log(message):
 class MyDialog:
     def __init__(self, parent):
         top = self.top = Toplevel(parent)
-        self.myLabel1 = Label(top, text='Enter TeamCity Username')
+        self.myLabel1 = Label(top, text='Enter TeamCity Username', width=25)
         self.myLabel1.pack()
         self.myEntryBox1 = Entry(top)
         self.myEntryBox1.pack()
-        self.myLabel2 = Label(top, text='Enter TeamCity Password')
+        self.myLabel2 = Label(top, text='Enter TeamCity Password', width=25)
         self.myLabel2.pack()
         self.myEntryBox2 = Entry(top, show="*")
         self.myEntryBox2.pack()
@@ -83,8 +83,6 @@ class MainApplication(Frame):
         cmd_1 = 'taskkill /IM python.exe /F > nul'
         cmd_2 = 'c:/Python27/python.exe %s > nul' % file_path
         f_path = folder + "/" + "starting_clean_install.bat"
-        if os.path.exists(f_path):
-            os.remove(f_path)
         f_open = open(f_path, 'w')
         f_open.write(echo_off + '\n' + cmd_1 + '\n' + cmd_2 + '\n')
         f_open.write('start /b "" cmd /c del "%~f0"&exit /b')
@@ -354,14 +352,22 @@ class MainApplication(Frame):
         AccessFile(self).write_file(file_name, body)
 
     def deploy(self):
-        inputDialog = MyDialog(root)
-        root.wait_window(inputDialog.top)
+        tc_username = tc_user_entry.get()
+        tc_password = tc_pass_entry.get()
+        if not tc_username or not tc_password:
+            while 1:
+                input_dialog = MyDialog(root)
+                root.wait_window(input_dialog.top)
+                if tc_username and tc_password:
+                    tc_user_entry.insert(INSERT, input_dialog.tc_username)
+                    tc_pass_entry.insert(INSERT, input_dialog.tc_password)
+                    break
         robot_path_p = robot_entry.get()
         username_p = user_entry.get()
         password_p = pass_entry.get()
         nim_path_p = nim_path_entry.get()
         UimBuild(self).deploy(robot_path_p, username_p, password_p, nim_path_p,
-                              inputDialog.tc_username, inputDialog.tc_password)
+                              tc_username, tc_password)
 
     def discover(self):
         folder_p = folder_entry.get()
@@ -455,8 +461,36 @@ class MainApplication(Frame):
                 os.kill(child, signal.SIGTERM)
         else:
             pass
+        folder = os.path.dirname(os.path.abspath(__file__))
+        folder_temp = '%s/Temp' % folder
+        f_paths = []
+        f_path_1 = '%s/cmd_snmpc_restart.bat' % folder
+        f_paths.append(f_path_1)
+        f_path_2 = '%s/cmd_nis_restart.bat' % folder
+        f_paths.append(f_path_2)
+        f_path_3 = '%s/cmd_snmpc_discover.bat' % folder_temp
+        f_paths.append(f_path_3)
+        f_path_4 = '%s/update_python_sim.bat' % folder_temp
+        f_paths.append(f_path_4)
+        f_path_5 = '%s/starting_clean_install.bat' % folder
+        f_paths.append(f_path_5)
+        for f_path in f_paths:
+            if os.path.exists(f_path):
+                os.remove(f_path)
+            else:
+                continue
 
     def schedule(self):
+        tc_username = tc_user_entry.get()
+        tc_password = tc_pass_entry.get()
+        if not tc_username or not tc_password:
+            while 1:
+                input_dialog = MyDialog(root)
+                root.wait_window(input_dialog.top)
+                if tc_username and tc_password:
+                    tc_user_entry.insert(INSERT, input_dialog.tc_username)
+                    tc_pass_entry.insert(INSERT, input_dialog.tc_password)
+                    break
         if self.loop > 0:
             self.deploy()
             sleep(2600)
@@ -525,6 +559,9 @@ if __name__ == "__main__":
 
     frame15 = Frame(page1)
     frame15.grid(column=1, row=5, sticky=E)
+
+    frame16 = Frame(page1)
+    frame16.grid(column=1, row=6, sticky=W)
 
     # Check Version button
     check_version_button = Button(frame11, text="Check Version",
@@ -633,24 +670,39 @@ if __name__ == "__main__":
     robot_entry.insert(INSERT, app.robot)
     robot_entry.grid(column=3, row=1, sticky=W)
 
-    blank_label = Label(frame22, text="", width=5)
+    blank_label = Label(frame22, text="", width=1)
     blank_label.grid(column=4, row=1, sticky=W)
 
     # Username
     user_label = Label(frame22, text="User:", width=10)
     user_label.grid(column=5, row=1, sticky=W)
-    user_entry = Entry(frame22, width=16)
+    user_entry = Entry(frame22, width=20)
     user_entry.insert(INSERT, 'administrator')
     user_entry.grid(column=6, row=1, sticky=W)
 
     blank_label = Label(frame22, text="", width=5)
     blank_label.grid(column=7, row=1, sticky=W)
 
+    # TeamCity User
+    tc_user_label = Label(frame22, text="TC User:", width=10)
+    tc_user_label.grid(column=8, row=1, sticky=W)
+    tc_user_entry = Entry(frame22, width=20)
+    tc_user_entry.grid(column=9, row=1, sticky=W)
+
     # Password
     pass_label = Label(frame22, text="Password:", width=10)
-    pass_label.grid(column=8, row=1, sticky=W)
+    pass_label.grid(column=5, row=2, sticky=W)
     pass_entry = Entry(frame22, width=20, show="*")
-    pass_entry.grid(column=9, row=1, sticky=W)
+    pass_entry.grid(column=6, row=2, sticky=W)
+
+    blank_label = Label(frame22, text="", width=5)
+    blank_label.grid(column=7, row=2, sticky=W)
+
+    # TeamCity Password
+    tc_pass_label = Label(frame22, text="TC Password:", width=10)
+    tc_pass_label.grid(column=8, row=2, sticky=W)
+    tc_pass_entry = Entry(frame22, width=20, show="*")
+    tc_pass_entry.grid(column=9, row=2, sticky=W)
 
     # Frame3------------------------------------------
     blank_label = Label(frame23, text="", width=5)

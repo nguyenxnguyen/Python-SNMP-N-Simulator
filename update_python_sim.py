@@ -19,9 +19,6 @@ def clean_install():
         f_open.write(line + '\n')
     f_open.close()
     os.system(f_path)
-    if os.path.exists(f_path):
-        sleep(5)
-        os.remove(f_path)
 
 
 def download_python_sim():

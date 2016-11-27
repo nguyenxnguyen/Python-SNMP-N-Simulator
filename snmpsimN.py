@@ -6,17 +6,32 @@ import socket
 import random
 from select import select
 from snmplib import *
+from n_function import timeit
+
 try:
     import inspect
-    cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile(inspect.currentframe()))[0], "csnmpsim/windows")))
+    cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile(inspect.currentframe()))[0], "csnmpsim/build/lib.win32-2.7")))
     print cmd_subfolder
     if cmd_subfolder not in sys.path:
         sys.path.insert(0, cmd_subfolder)
     import csnmpsim
     CSNMPSIM_LOADED = 1
+    print "[Successfully load C extension]\n"
 except ImportError:
-    print "[C extension not found--load times may be increased]"
-    CSNMPSIM_LOADED = 0
+    try:
+        import inspect
+        cmd_subfolder = os.path.realpath(os.path.abspath(
+            os.path.join(os.path.split(inspect.getfile(inspect.currentframe()))[0], "csnmpsim/build/lib.win-amd64-2.7")))
+        print cmd_subfolder
+        if cmd_subfolder not in sys.path:
+            sys.path.insert(0, cmd_subfolder)
+        import csnmpsim
+        CSNMPSIM_LOADED = 1
+        print "[Successfully load C extension]\n"
+    except ImportError, e:
+        print "[C extension not found--load times may be increased]\n"
+        print "Error: %s\n" % e
+        CSNMPSIM_LOADED = 0
 
 class SnmpSimError(exceptions.Exception): pass
 class SnmpSimDumpError(SnmpSimError): pass
@@ -38,6 +53,7 @@ DELTA_APPLY_RATE = 300   # Delta is applied once every DELTA_APPLY_RATE seconds
 #
 # Change functions (assigned to variables dynamically)
 #
+
 
 def rd_snmpsim(oidsStr):
     ele_oid = oidsStr.split(", ")
@@ -215,6 +231,7 @@ class MibDataStore:
             value = newVal + ".0"
         return value
 
+    @timeit
     def load(self, filename):
         """Load mib values from a mib dump file.
         """

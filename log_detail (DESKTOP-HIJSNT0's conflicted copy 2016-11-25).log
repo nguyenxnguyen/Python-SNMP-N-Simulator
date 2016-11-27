@@ -1,0 +1,134 @@
+2016-11-13 21:29:28,903 
+	ERROR : __main__ : simlaunch : UIM was not installed on this machine!
+2016-11-13 21:35:02,809 
+	ERROR : __main__ : simlaunch : Path of UIM is not available!
+2016-11-13 21:37:45,710 
+	ERROR : __main__ : simlaunch : The system can not find the UIM Path
+2016-11-13 21:37:49,440 
+	ERROR : __main__ : simlaunch : The system can not find the UIM Path
+2016-11-13 21:38:20,523 
+	ERROR : __main__ : simlaunch : The system can not find the UIM Path
+2016-11-13 21:41:44,697 
+	ERROR : __main__ : simlaunch : The system can not find the UIM Path
+2016-11-13 21:42:20,713 
+	ERROR : __main__ : simlaunch : [Error 3] The system cannot find the path specified: ''
+2016-11-13 21:42:27,841 
+	ERROR : __main__ : simlaunch : MyDialog instance has no attribute 'tc_username'
+2016-11-13 21:44:01,693 
+	ERROR : __main__ : simlaunch : MyDialog instance has no attribute 'tc_username'
+2016-11-13 21:45:01,798 
+	ERROR : __main__ : simlaunch : The system can not find the UIM Path
+2016-11-13 21:45:10,677 
+	ERROR : __main__ : simlaunch : MyDialog instance has no attribute 'tc_username'
+2016-11-13 21:50:01,816 
+	ERROR : __main__ : simlaunch : send() takes exactly 1 argument (2 given)
+2016-11-13 21:50:53,950 
+	ERROR : __main__ : simlaunch : MyDialog instance has no attribute 'tc_username'
+2016-11-13 21:51:18,467 
+	ERROR : __main__ : simlaunch : The system can not find the UIM Path
+2016-11-13 21:54:52,446 
+	ERROR : __main__ : simlaunch : The system can not find the UIM Path
+2016-11-13 21:56:36,220 
+	ERROR : __main__ : simlaunch : The system can not find the UIM Path
+2016-11-14 10:35:00,171 
+	ERROR : __main__ : simlaunch : The system can not find the UIM Path
+2016-11-16 08:22:17,569 
+	ERROR : __main__ : simlaunch : kill() argument 1 must be an integer, not str
+2016-11-22 09:11:54,855 
+	ERROR : __main__ : simlaunch : [Error 87] The parameter is incorrect
+2016-11-22 09:18:27,776 
+	ERROR : __main__ : simlaunch : [Error 87] The parameter is incorrect
+2016-11-22 09:55:03,229 
+	ERROR : __main__ : simlaunch : [Error 5] Access is denied
+2016-11-22 10:30:29,102 
+	ERROR : __main__ : simlaunch : [Error 5] Access is denied
+2016-11-22 10:30:32,459 
+	ERROR : __main__ : simlaunch : [Error 5] Access is denied
+2016-11-22 10:31:43,862 
+	ERROR : __main__ : simlaunch : [Error 5] Access is denied
+2016-11-22 10:58:34,624 
+	ERROR : __main__ : simlaunch : [Error 3] The system cannot find the path specified: ''
+2016-11-23 23:04:33,638 
+	ERROR : __main__ : simlaunch : [Error 3] The system cannot find the path specified: ''
+2016-11-23 23:06:29,354 
+	ERROR : __main__ : simlaunch : The system can not find the UIM Path
+2016-11-23 23:51:45,038 
+	ERROR : __main__ : simlaunch : kill() argument 1 must be an integer, not str
+2016-11-23 23:56:34,426 
+	ERROR : __main__ : simlaunch : list index out of range
+2016-11-23 23:58:45,977 
+	ERROR : __main__ : simlaunch : list index out of range
+2016-11-23 23:59:29,967 
+	ERROR : __main__ : simlaunch : list index out of range
+2016-11-24 00:02:30,305 
+	ERROR : __main__ : simlaunch : list index out of range
+2016-11-24 00:07:11,664 
+	ERROR : __main__ : simlaunch : list index out of range
+2016-11-24 00:12:56,075 
+	ERROR : __main__ : simlaunch : [Error 87] The parameter is incorrect
+2016-11-24 11:01:34,022 
+	ERROR : n_function : n_function : [Error 3] The system cannot find the path specified: ''
+2016-11-25 16:50:50,421 
+	ERROR : n_function : n_function : 'NoneType' object is not iterable
+2016-11-25 16:51:56,391 
+	ERROR : n_function : n_function : 'NoneType' object is not iterable
+2016-11-25 16:54:18,391 
+	ERROR : n_function : n_function : 'NoneType' object is not iterable
+2016-11-25 16:55:21,119 
+	ERROR : n_function : n_function : 'NoneType' object is not iterable
+2016-11-25 16:57:49,486 
+	ERROR : n_function : n_function : 'NoneType' object is not iterable
+2016-11-25 16:59:26,595 
+	ERROR : n_function : n_function : 'NoneType' object is not iterable
+2016-11-25 17:01:44,114 
+	ERROR : n_function : n_function : 'NoneType' object is not iterable
+2016-11-25 17:02:34,128 
+	ERROR : n_function : n_function : 'NoneType' object is not iterable
+2016-11-25 17:04:32,082 
+	ERROR : n_function : n_function : 'NoneType' object is not iterable
+2016-11-25 17:23:20,734 
+	ERROR : n_function : n_function : local variable 'ip_address' referenced before assignment
+2016-11-25 17:24:19,239 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 17:25:11,204 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 19:58:21,684 
+	ERROR : n_function : n_function : not all arguments converted during string formatting
+2016-11-25 19:59:07,812 
+	ERROR : n_function : n_function : not all arguments converted during string formatting
+2016-11-25 20:02:57,019 
+	ERROR : n_function : n_function : not all arguments converted during string formatting
+2016-11-25 20:03:40,926 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:04:41,486 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:07:27,242 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:09:22,831 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:12:03,463 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:13:10,098 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:15:52,979 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:16:28,069 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:18:05,272 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:19:44,036 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:19:48,858 
+	ERROR : n_function : n_function : [Error 5] Access is denied
+2016-11-25 20:20:02,239 
+	ERROR : n_function : n_function : list index out of range
+2016-11-25 20:26:47,526 
+	ERROR : n_function : n_function : 'staticmethod' object is not callable
+2016-11-25 20:28:04,509 
+	ERROR : n_function : n_function : 'module' object is not callable
+2016-11-25 20:33:41,068 
+	ERROR : n_function : n_function : The system can not find the UIM Path
+2016-11-25 20:33:47,375 
+	ERROR : n_function : n_function : The system can not find the UIM Path
+2016-11-25 21:32:14,234 
+	ERROR : n_function : n_function : 'instancemethod' object does not support item assignment

@@ -1,5 +1,5 @@
 @echo off
-del /Q "ROOT_FOLDER\*.*"
+for %i in (ROOT_FOLDER\*.*) do if not %i == ROOT_FOLDER\setting.xml del /Q %i
 for /D %%D in ("ROOT_FOLDER\*.*") do (
     if /I not "%%~nxD"=="Temp" (
             2> nul rd /S /Q "%%~fD"

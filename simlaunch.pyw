@@ -1,8 +1,8 @@
 from Tkinter import *
-from string import join
-import tkFileDialog, tkMessageBox,  os, sys, re
+import tkMessageBox
+import os
+import sys
 from MultiListbox import MultiListbox
-import subprocess
 import signal
 from time import sleep
 from datetime import datetime, timedelta
@@ -11,17 +11,7 @@ from sim_extend import SimExtend
 from uim import UimBuild, UimDevice
 import ttk
 from xml.etree.ElementTree import parse
-
-
-def auto_log(message):
-    import logging, os
-    folder = os.path.dirname(os.path.abspath(__file__))
-    log_path = folder + '/log_detail.log'
-    logging.basicConfig(filename=log_path, level=logging.DEBUG,
-                        format='%(asctime)s \n'
-                               '\t%(levelname)s : %(name)s : %(module)s : %(message)s')
-    logger = logging.getLogger(__name__)
-    logger.error(message)
+from n_function import catch_exceptions
 
 
 class MyDialog:
@@ -34,9 +24,12 @@ class MyDialog:
         self.myLabel2 = Label(top, text='Enter TeamCity Password', width=25)
         self.myLabel2.pack()
         self.myEntryBox2 = Entry(top, show="*")
+        self.myEntryBox2.bind('<Return>', lambda event: self.send())
         self.myEntryBox2.pack()
         self.mySubmitButton = Button(top, text='Submit', command=self.send)
         self.mySubmitButton.pack()
+        self.tc_username = ''
+        self.tc_password = ''
 
     def send(self):
         self.tc_username = self.myEntryBox1.get()
@@ -55,18 +48,19 @@ class MainApplication(Frame):
         self.i3 = 0
         self.loop = 0
         self.timer = 0
+        self.info = {}
         folder = os.path.dirname(os.path.abspath(__file__))
         f_path = folder + '/setting.xml'
         if os.path.exists(f_path):
             tree = parse(f_path)
             top = tree.getroot()
-            self.nim_path = top.find('nim_path').text
-            self.schedule_time = top.find('schedule_time').text
-            self.timeout = top.find('timeout').text
+            self.info['nim_path'] = top.find('nim_path').text
+            self.info['schedule_time'] = top.find('schedule_time').text
+            self.info['timeout'] = top.find('timeout').text
         else:
-            self.nim_path = 'c:/Program Files (x86)/Nimsoft'
-            self.schedule_time = 1
-            self.timeout = 10
+            self.info['nim_path'] = 'c:/Program Files (x86)/Nimsoft'
+            self.info['schedule_time'] = 1
+            self.info['timeout'] = 3
         import atexit
         atexit.register(self.goodbye)
 
@@ -75,7 +69,88 @@ class MainApplication(Frame):
         else:
             self.robot = ''
 
+    @catch_exceptions
+    def save_info(self):
+        self.info['robot'] = robot_entry.get()
+        self.info['start_port'] = port_entry.get()
+        self.info['user'] = user_entry.get()
+        self.info['pass'] = pass_entry.get()
+        self.info['tc_user'] = tc_user_entry.get()
+        self.info['tc_pass'] = tc_pass_entry.get()
+        missing_msg = ''
+        for key in self.info.keys():
+            if key == 'robot':
+                continue
+            if not self.info[key]:
+                missing_msg += 'Missing __%s__ Field\n' % key
+
+        if missing_msg:
+            tkMessageBox.showinfo('Warning!!!', missing_msg)
+
+    @catch_exceptions
+    def save_setting(self):
+        self.info['nim_path'] = nim_path_entry.get()
+        self.info['schedule_time'] = schedule_box.get()
+        self.info['timeout'] = timeout_entry.get()
+        AccessFile().write_setting_xml(self.info['nim_path'], self.info['schedule_time'], self.info['timeout'])
+
+    @catch_exceptions
+    def check_tc_info(self):
+        if not self.info['tc_user'] or not self.info['tc_pass']:
+            while 1:
+                input_dialog = MyDialog(root)
+                root.wait_window(input_dialog.top)
+                tc_user = input_dialog.tc_username
+                tc_pass = input_dialog.tc_password
+                if tc_user and tc_pass:
+                    tc_user_entry.insert(INSERT, tc_user)
+                    tc_pass_entry.insert(INSERT, tc_pass)
+                    break
+            self.info['tc_user'] = tc_user_entry.get()
+            self.info['tc_pass'] = tc_pass_entry.get()
+
+    def snmpc_restart(self):
+        UimDevice().restart_snmpc(self.info['nim_path'], self.info['user'], self.info['pass'], self.info['robot'], 3)
+
+    def nis_restart(self):
+        UimDevice().restart_nis(self.info['nim_path'], self.info['user'], self.info['pass'], self.info['robot'], 3)
+
     @staticmethod
+    @catch_exceptions
+    def convert_table_one_row(table):
+        temp_table = []
+        for part in table:
+            temp_table.append(part[0])
+        temp_table = [temp_table, '']
+        return temp_table
+
+    @catch_exceptions
+    def check_missing(self):
+        hosts = self.get_hosts()
+        mlb_2.delete(0, mlb.size() - 1)
+        if mlb.size() > 0:
+            table_2 = mlb.get(0, mlb.size() - 1)
+            if mlb.size() == 1:
+                table_2 = self.convert_table_one_row(table_2)
+            for row in table_2:
+                if not row:
+                    continue
+                discover_flag = 0
+                row = list(row)
+                for host in hosts:
+                    if row[0] == host:
+                        discover_flag = 1
+                        break
+                if discover_flag == 0:
+                    mlb_2.insert(END, ('%s' % row[0],
+                                       '%s' % row[1],
+                                       '%s' % row[2],
+                                       '%s' % row[3],
+                                       '%s' % row[4],
+                                       '%s' % row[5]))
+
+    @staticmethod
+    @catch_exceptions
     def update_python_sim():
         folder = os.path.dirname(os.path.abspath(__file__))
         file_path = folder + '/update_python_sim.py'
@@ -90,16 +165,11 @@ class MainApplication(Frame):
         cmd = 'start cmd.exe /c "%s"' % f_path
         os.system(cmd)
 
+    @catch_exceptions
     def check_version(self):
         ans = AccessFile(self).check_version()
         if ans:
             self.update_python_sim()
-
-    def save_setting(self):
-        nim_path = nim_path_entry.get()
-        schedule_time = schedule_box.get()
-        timeout = timeout_entry.get()
-        AccessFile(self).write_setting_XML(nim_path, schedule_time, timeout)
 
     @staticmethod
     def new_ip(i1, i2, i3):
@@ -117,6 +187,7 @@ class MainApplication(Frame):
                     sys.exit()
         return i1, i2, i3
 
+    @catch_exceptions
     def insert_table(self, folder, file_read):
         ports = list(self.ports)
         if ports:
@@ -136,9 +207,11 @@ class MainApplication(Frame):
             i3 = self.i3
         port = int(last_port)
 
-        # First time getting file, load everything from List_Files
+        # First time getting files, load everything from List_Files into mlb
         if file_read and mlb.size() == 0:
             for line in file_read:
+                if not line:
+                    continue
                 line_split = line.split(',')
                 file_path = folder + '/' + line_split[2]
                 if os.path.exists(file_path):
@@ -148,7 +221,7 @@ class MainApplication(Frame):
                 mlb.insert(END, ('%s' % line_split[0],
                                  '%s' % line_split[1],
                                  '%s' % line_split[2],
-                                 '%s' % state, '---', '---'))
+                                 '%s' % state, '---', '---', '---'))
                 mlb.pack(expand=YES, fill=BOTH)
                 ip_addresses.append(line_split[0])
                 last_ip = str(ip_addresses[-1])
@@ -164,12 +237,16 @@ class MainApplication(Frame):
         if True:
             if mlb.size() > 0:
                 table = mlb.get(0, mlb.size() - 1)
+                if mlb.size() == 1:
+                    table = self.convert_table_one_row(table)
             else:
                 table = []
             for dump_file in os.listdir(folder):
                 if dump_file.endswith(".mdr"):
                     flag_newly = 1
                     for row in table:
+                        if not row:
+                            continue
                         if dump_file == row[2]:
                             flag_newly = 0
                             break
@@ -186,7 +263,7 @@ class MainApplication(Frame):
                         mlb.insert(END, ('%s' % ip_address, 
                                          '%s' % str(port), 
                                          '%s' % dump_file, 
-                                         '%s' % state, '---', '---'))
+                                         '%s' % state, '---', '---', '---'))
                         mlb.pack(expand=YES, fill=BOTH)
                     else:
                         pass
@@ -206,6 +283,8 @@ class MainApplication(Frame):
         table = []
         if mlb.size() > 0:
             table = mlb.get(0, mlb.size() - 1)
+            if mlb.size() == 1:
+                table = self.convert_table_one_row(table)
         if len(file_read) > 0:
             for line in file_read:
                 line_split = line.split(',')
@@ -214,6 +293,8 @@ class MainApplication(Frame):
                 if os.path.exists(file_path):
                     if table:
                         for row in table:
+                            if not row:
+                                continue
                             if line_split[2] == row[2]:
                                 duplicate = 1
                                 break
@@ -264,31 +345,42 @@ class MainApplication(Frame):
                             i1, i2, i3 = self.new_ip(i1, i2, i3)
                             ip_address = '127.%s.%s.%s' % (str(i1), str(i2), str(i3))
                         ip_addresses.append(ip_address)
-                        # state = snmp_get_sysoid(ip_address, str(port))
+                        #state = snmp_get_sysoid(ip_address, str(port))
                         dump_file = dump_file.encode('ascii', 'ignore')
-                        mlb.insert(END, ('%s' % ip_address, '%s' % str(port), '%s' % dump_file, '---', '---', '---'))
+                        mlb.insert(END, ('%s' % ip_address, '%s' % str(port), '%s' % dump_file,
+                                         '---', '---', '---', '---'))
                         mlb.pack(expand=YES, fill=BOTH)
 
+    @catch_exceptions
     def snmp_get_sysoid(self):
         folder_p = folder_entry.get()
         if mlb.size() > 0:
             table_p = mlb.get(0, mlb.size() - 1)
+            if mlb.size() == 1:
+                table_p = self.convert_table_one_row(table_p)
             mlb.delete(0, mlb.size() - 1)
-            table_p = list(SimExtend(self).snmp_get_sysoid(folder_p, table_p))
+            table_p = list(SimExtend().snmp_get_sysoid(self.info['nim_path'], self.info['user'], self.info['pass'],
+                                                       self.info['robot'], folder_p, table_p))
             if table_p:
                 for row in table_p:
+                    if not row:
+                        continue
                     mlb.insert(END,
                                ('%s' % row[0],
                                 '%s' % row[1],
                                 '%s' % row[2],
                                 '%s' % row[3],
                                 '%s' % row[4],
-                                '%s' % row[5]))
-                    mlb.pack(expand=YES, fill=BOTH)
+                                '%s' % row[5],
+                                '%s' % row[6]),)
+                    # mlb.pack(expand=YES, fill=BOTH)
 
+    @catch_exceptions
     def stop_sim(self):
         if mlb.size() > 0:
             table = mlb.get(0, mlb.size() - 1)
+            if mlb.size() == 1:
+                table = self.convert_table_one_row(table)
             folder_p = folder_entry.get()
             table_p = list(SimExtend(self).stop_sim(table))
             if table_p:
@@ -296,27 +388,34 @@ class MainApplication(Frame):
                 if table_p:
                     mlb.delete(0, mlb.size() - 1)
                     for row in table_p:
+                        if not row:
+                            continue
                         mlb.insert(END, ('%s' % row[0],
                                          '%s' % row[1],
                                          '%s' % row[2],
                                          '%s' % row[3],
                                          '%s' % row[4],
-                                         '%s' % row[5]))
+                                         '%s' % row[5],
+                                         '%s' % row[6]))
                         mlb.pack(expand=YES, fill=BOTH)
                 self.snmp_get_sysoid()
                 self.pid = []
 
+    @catch_exceptions
     def run_sim(self):
         if mlb.size() > 0:
             v1_p = v1.get()
             v2c_p = v2c.get()
             ranDm_p = ranDm.get()
-            #pid_p = self.pid
             table_p = mlb.get(0, mlb.size() - 1)
+            if mlb.size() == 1:
+                table_p = self.convert_table_one_row(table_p)
             folder_p = folder_entry.get()
             mlb.delete(0, mlb.size() - 1)
-            table_p = SimExtend(self).run_sim(v1_p, v2c_p, ranDm_p, table_p, folder_p)
+            table_p = SimExtend().run_sim(v1_p, v2c_p, ranDm_p, table_p, folder_p)
             for row in table_p:
+                if not row:
+                    continue
                 if row[4] != '---':
                     self.pid.append(row[4])
                 mlb.insert(END, ('%s' % row[0],
@@ -324,17 +423,20 @@ class MainApplication(Frame):
                                  '%s' % row[2],
                                  '%s' % row[3],
                                  '%s' % row[4],
-                                 '%s' % row[5]))
+                                 '%s' % row[5],
+                                 '%s' % row[6]))
                 mlb.pack(expand=YES, fill=BOTH)
             self.snmp_get_sysoid()
 
+    @catch_exceptions
     def get_file(self):
-        results_get_file = list(AccessFile(self).get_file())
+        results_get_file = list(AccessFile().get_file())
         folder = results_get_file[0]
         file_read = results_get_file[1:None]
         folder_entry.delete(0, END)
         folder_entry.insert(INSERT, folder)
         self.insert_table(folder, file_read)
+        # remove check mlb
         #if mlb.size() > 0:
         if False:
             table = mlb.get(0, mlb.size() - 1)
@@ -348,61 +450,82 @@ class MainApplication(Frame):
                 log_open.write(log_detail)
                 log_open.close()
 
-    def write_file(self, file_name, body):
-        AccessFile(self).write_file(file_name, body)
-
-    def deploy(self):
-        tc_username = tc_user_entry.get()
-        tc_password = tc_pass_entry.get()
-        if not tc_username or not tc_password:
-            while 1:
-                input_dialog = MyDialog(root)
-                root.wait_window(input_dialog.top)
-                if tc_username and tc_password:
-                    tc_user_entry.insert(INSERT, input_dialog.tc_username)
-                    tc_pass_entry.insert(INSERT, input_dialog.tc_password)
-                    break
-        robot_path_p = robot_entry.get()
-        username_p = user_entry.get()
-        password_p = pass_entry.get()
-        nim_path_p = nim_path_entry.get()
-        UimBuild(self).deploy(robot_path_p, username_p, password_p, nim_path_p,
-                              tc_username, tc_password)
-
-    def discover(self):
-        folder_p = folder_entry.get()
-        robot_path_p = robot_entry.get()
-        username_p = user_entry.get()
-        password_p = pass_entry.get()
-        timeout_p = timeout_entry.get()
-        nim_path_p = nim_path_entry.get()
-        if mlb.size() > 0:
-            table_p = mlb.get(0, mlb.size() - 1)
-            UimDevice(self).discover(robot_path_p, username_p, password_p, table_p, timeout_p, nim_path_p, folder_p)
-
-    def rediscover(self):
-        folder_p = folder_entry.get()
-        robot_path_p = robot_entry.get()
-        username_p = user_entry.get()
-        password_p = pass_entry.get()
-        timeout_p = timeout_entry.get()
-        nim_path_p = nim_path_entry.get()
-        if mlb.size() > 0:
-            table_p = mlb.get(0, mlb.size() - 1)
-            UimDevice(self).rediscover(robot_path_p, username_p, password_p, table_p, timeout_p, nim_path_p, folder_p)
-
     @staticmethod
-    def get_hosts():
-        username_p = user_entry.get()
-        password_p = pass_entry.get()
-        robot_path_p = robot_entry.get()
-        nim_path_p = nim_path_entry.get()
-        if password_p == '':
-            password_p = '1QAZ2wsx'
+    def write_file(file_name, body):
+        AccessFile().write_file(file_name, body)
+
+    @catch_exceptions
+    def deploy(self):
+        self.check_tc_info()
+        sleep(2)
+        UimBuild().deploy(self.info['nim_path'], self.info['user'], self.info['pass'],
+                          self.info['robot'], self.info['tc_user'], self.info['tc_pass'])
+
+    @catch_exceptions
+    def discover(self):
+        discovered_hosts_p = self.get_hosts()
+        folder_p = folder_entry.get()
+        if mlb.size() > 0:
+            table_p = mlb.get(0, mlb.size() - 1)
+            if mlb.size() == 1:
+                table_p = self.convert_table_one_row(table_p)
+            table_return = list(UimDevice().discover(self.info['nim_path'], self.info['user'], self.info['pass'],
+                                                     self.info['robot'],
+                                                     folder_p, table_p, discovered_hosts_p, self.info['timeout']))
+            if table_return:
+                mlb.delete(0, mlb.size() - 1)
+                for row in table_return:
+                    if not row:
+                        continue
+                    mlb.insert(END, ('%s' % row[0],
+                                     '%s' % row[1],
+                                     '%s' % row[2],
+                                     '%s' % row[3],
+                                     '%s' % row[4],
+                                     '%s' % row[5],
+                                     '%s' % row[6]))
+
+    @catch_exceptions
+    def rediscover(self):
+        discovered_hosts_p = self.get_hosts()
+        folder_p = folder_entry.get()
+        if mlb.size() > 0:
+            table_p = mlb.get(0, mlb.size() - 1)
+            if mlb.size() == 1:
+                table_p = self.convert_table_one_row(table_p)
+            table_return = list(UimDevice().rediscover(self.info['nim_path'], self.info['user'], self.info['pass'],
+                                                       self.info['robot'],
+                                                       folder_p, table_p, discovered_hosts_p, self.info['timeout']))
+            if table_return:
+                mlb.delete(0, mlb.size() - 1)
+                for row in table_return:
+                    if not row:
+                        continue
+                    mlb.insert(END, ('%s' % row[0],
+                                     '%s' % row[1],
+                                     '%s' % row[2],
+                                     '%s' % row[3],
+                                     '%s' % row[4],
+                                     '%s' % row[5],
+                                     '%s' % row[6]))
+
+    @catch_exceptions
+    def try_rediscover(self):
+        discovered_hosts_p = self.get_hosts()
+        folder_p = folder_entry.get()
+        if mlb_2.size() > 0:
+            table_p = mlb_2.get(0, mlb_2.size() - 1)
+            if mlb_2.size() == 1:
+                table_p = self.convert_table_one_row(table_p)
+            UimDevice().discover(self.info['nim_path'], self.info['user'], self.info['pass'], self.info['robot'],
+                                 folder_p, table_p, discovered_hosts_p, self.info['timeout'])
+
+    @catch_exceptions
+    def get_hosts(self):
         ip_addresses = []
         cmd_get_all_device = '"%s/bin/pu.exe" -u %s -p %s ' \
                              '%ssnmpcollector get_snmp_device ALL' \
-                             % (nim_path_p, username_p, password_p, robot_path_p)
+                             % (self.info['nim_path'], self.info['user'], self.info['pass'], self.info['robot'])
         response = os.popen(cmd_get_all_device).read()
         response_split = response.split('\n')
         for line in response_split:
@@ -410,49 +533,65 @@ class MainApplication(Frame):
                 ip_address = line.replace('IP = ', '')
                 ip_addresses.append(ip_address)
         ip_addresses.sort()
-        ip_combobox['values'] = ip_addresses
+        value_ip_combobox = ip_addresses
+        value_ip_combobox.append('ALL')
+        ip_combobox['values'] = value_ip_combobox
         return ip_addresses
 
+    @catch_exceptions
     def get_component(self):
-        username_p = user_entry.get()
-        password_p = pass_entry.get()
         folder_p = folder_entry.get()
-        nim_path_p = nim_path_entry.get()
         ip_addresses = []
         if mlb.size() > 0:
             table = mlb.get(0, mlb.size() - 1)
+            if mlb.size() == 1:
+                table = self.convert_table_one_row(table)
             for row in table:
+                if not row:
+                    continue
                 row = list(row)
                 ip_address = row[0]
                 ip_addresses.append(ip_address)
-            #file_paths = list(UimDevice(self).get_component(username_p, password_p, ip_addresses, folder_p, nim_path_p))
-            UimDevice(self).get_component(username_p, password_p, ip_addresses, folder_p, nim_path_p)
-        #return file_paths
+            UimDevice().get_component(self.info['nim_path'], self.info['user'], self.info['pass'],
+                                      folder_p, ip_addresses)
 
+    @catch_exceptions
     def get_some_component(self):
-        username_p = user_entry.get()
-        password_p = pass_entry.get()
-        nim_path_p = nim_path_entry.get()
         folder_p = folder_entry.get()
         if not folder_p:
             folder_p = os.path.expanduser('~/Desktop')
         ip_addresses = []
         ip_address = ip_combobox.get()
-        if ip_address != '---':
+        if ip_address == 'ALL' or ip_address == '---':
+            ip_addresses = self.get_hosts()
+        elif ip_address != '---' and ip_address != 'ALL':
             ip_addresses.append(ip_address)
         else:
-            ip_addresses = self.get_hosts()
-        UimDevice(self).get_component(username_p, password_p, ip_addresses, folder_p, nim_path_p)
+            pass
+        UimDevice().get_component(self.info['nim_path'], self.info['user'], self.info['pass'], folder_p, ip_addresses)
 
+    @catch_exceptions
     def rm_device(self):
-        robot_path_p = robot_entry.get()
-        username_p = user_entry.get()
-        password_p = pass_entry.get()
-        nim_path_p = nim_path_entry.get()
         if mlb.size() > 0:
             table_p = mlb.get(0, mlb.size() - 1)
-            UimDevice(self).rm_device(robot_path_p, username_p, password_p, table_p, nim_path_p)
+            if mlb.size() == 1:
+                table_p = self.convert_table_one_row(table_p)
+            table_return = list(UimDevice().rm_device(self.info['nim_path'], self.info['user'], self.info['pass'],
+                                self.info['robot'], table_p))
+            if table_return:
+                mlb.delete(0, mlb.size() - 1)
+                for row in table_return:
+                    if not row:
+                        continue
+                    mlb.insert(END, ('%s' % row[0],
+                                     '%s' % row[1],
+                                     '%s' % row[2],
+                                     '%s' % row[3],
+                                     '%s' % row[4],
+                                     '%s' % row[5],
+                                     '%s' % row[6]))
 
+    @catch_exceptions
     def goodbye(self):
         print("You are now leaving the Python SimSNMP.")
         pid = self.pid
@@ -480,69 +619,61 @@ class MainApplication(Frame):
             else:
                 continue
 
+    @catch_exceptions
     def schedule(self):
-        tc_username = tc_user_entry.get()
-        tc_password = tc_pass_entry.get()
-        if not tc_username or not tc_password:
-            while 1:
-                input_dialog = MyDialog(root)
-                root.wait_window(input_dialog.top)
-                if tc_username and tc_password:
-                    tc_user_entry.insert(INSERT, input_dialog.tc_username)
-                    tc_pass_entry.insert(INSERT, input_dialog.tc_password)
-                    break
-        if self.loop > 0:
-            self.deploy()
-            sleep(2600)
-            self.rediscover()
-            sleep(600)
-            self.get_component()
+        if self.pid:
+            self.check_tc_info()
+            if self.loop > 0:
+                self.deploy()
+                sleep(2600)
+                self.rediscover()
+                sleep(600)
+                self.get_component()
+            else:
+                self.discover()
+            now_click = datetime.now()
+            set_time = int(schedule_box.get())
+            set_datetime = now_click.replace(hour=set_time, minute=00)
+            delta_time = set_datetime - now_click
+            if delta_time < timedelta(seconds=0):
+                delta_time += timedelta(seconds=24*60*60)
+
+            # uncomment this to hide schedule button after it was clicked
+            #schedule_button['relief'] = 'flat'
+            #schedule_button['text'] = ''
+            schedule_button.configure(state=DISABLED)
+            schedule_time_label['text'] = 'Rediscover at: %s:00' % str(set_time)
+            schedule_time_label['fg'] = 'dark green'
+            schedule_time_label['font'] = 'Helvetica 10 bold'
+            self.loop += 1
+            micro_seconds = delta_time.seconds*1000
+            root.after(micro_seconds, self.schedule)
         else:
-            self.discover()
-        now_click = datetime.now()
-        set_time = int(schedule_box.get())
-        set_datetime = now_click.replace(hour=set_time, minute=00)
-        delta_time = set_datetime - now_click
-        if delta_time < timedelta(seconds=0):
-            delta_time += timedelta(seconds=24*60*60)
-        #schedule_button['relief'] = 'flat'
-        #schedule_button['text'] = ''
-        schedule_button.configure(state=DISABLED)
-        schedule_time_label['text'] = 'Rediscover at: %s:00' % str(set_time)
-        schedule_time_label['fg'] = 'dark green'
-        schedule_time_label['font'] = 'Helvetica 10 bold'
-        self.loop += 1
-        micro_seconds = delta_time.seconds*1000
-        root.after(micro_seconds, self.schedule)
+            tkMessageBox.showinfo('Warning!!!', 'There is no running simulator!!')
 
     @staticmethod
-    def parse_XML():
+    def parse_xml():
         pass
 
 
 if __name__ == "__main__":
     root = Tk()
     root.resizable(width=False, height=False)
-    root.title("Python SNMP N-Simulator ver 1.0")
+    root.title("Python SNMP N-Simulator ver 1.1")
 
     # new notebook
     note_book = ttk.Notebook(root)
     page1 = ttk.Frame(note_book)
     page2 = ttk.Frame(note_book)
     page3 = ttk.Frame(note_book)
-    note_book.add(page1, text='Setting')
+    note_book.add(page1, text='Settings')
     note_book.add(page2, text='General')
     note_book.add(page3, text='Extensions')
     note_book.pack(expand=1, fill="both")
     note_book.select(1)
 
-    # This is main application
-    #try:
-     #   app = MainApplication(root)
-    #except Exception as err:
-     #   auto_log(err)
     app = MainApplication(root)
-    #app.check_version()
+    # app.check_version()
 
     # ----------------------------------- PAGE 1 # -----------------------------------
     frame11 = Frame(page1)
@@ -575,10 +706,10 @@ if __name__ == "__main__":
     blank_label.grid(column=1, row=2, sticky=W)
 
     # Browse Probe
-    nim_path_label = Label(frame12, text="PATH of NIMSOFT:", width=25)
+    nim_path_label = Label(frame12, text="                        PATH of UIM:", width=25)
     nim_path_label.grid(column=2, row=2)
     nim_path_entry = Entry(frame12, width=128)
-    nim_path_entry.insert(INSERT, app.nim_path)
+    nim_path_entry.insert(INSERT, app.info['nim_path'])
     nim_path_entry.grid(column=3, row=2, sticky=W)
 
     blank_label = Label(frame12, text="", width=5)
@@ -591,7 +722,7 @@ if __name__ == "__main__":
     schedule_label = Label(frame13, text="  Daily Rediscover Schedule:", width=25)
     schedule_label.grid(column=2, row=1)
     var = StringVar(root)
-    var.set(app.schedule_time)
+    var.set(app.info['schedule_time'])
     schedule_box = Spinbox(frame13, from_=1, to=24, state='readonly', wrap='true',
                            textvariable=var, width=10)
     schedule_box.grid(column=3, row=1, sticky=W)
@@ -606,7 +737,7 @@ if __name__ == "__main__":
     timeout_label = Label(frame14, text="               Discovery Timeout:", width=25)
     timeout_label.grid(column=2, row=1)
     timeout_entry = Entry(frame14, width=10)
-    timeout_entry.insert(INSERT, app.timeout)
+    timeout_entry.insert(INSERT, app.info['timeout'])
     timeout_entry.grid(column=3, row=1)
     timeout_format_label = Label(frame14, text="seconds")
     timeout_format_label.grid(column=4, row=1)
@@ -646,7 +777,7 @@ if __name__ == "__main__":
     folder_label = Label(frame21, text="Dump folder:", width=15)
     folder_label.grid(column=2, row=1, sticky=W)
     folder_entry = Entry(frame21, width=128)
-    #folder_entry.insert(INSERT, dump_folder)
+    # folder_entry.insert(INSERT, dump_folder)
     folder_entry.grid(column=3, row=1, sticky=W)
 
     blank_label = Label(frame21, text="", width=1)
@@ -693,6 +824,7 @@ if __name__ == "__main__":
     pass_label = Label(frame22, text="Password:", width=10)
     pass_label.grid(column=5, row=2, sticky=W)
     pass_entry = Entry(frame22, width=20, show="*")
+    pass_entry.insert(INSERT, '1QAZ2wsx')
     pass_entry.grid(column=6, row=2, sticky=W)
 
     blank_label = Label(frame22, text="", width=5)
@@ -741,6 +873,13 @@ if __name__ == "__main__":
     # Schedule time label
     schedule_time_label = Label(frame23, text="", width=17)
     schedule_time_label.grid(column=9, row=1, sticky=W+E+N+S+N+S)
+
+    blank_label = Label(frame23, text="", width=15)
+    blank_label.grid(column=10, row=1)
+
+    # SAVE button
+    save_button = Button(frame23, text="Save Account Info", command=app.save_info, font='Times 8', width=15)
+    save_button.grid(column=11, row=1)
 
     # Frame4------------------------------------------
     blank_label = Label(frame24, text="", width=5)
@@ -817,8 +956,9 @@ if __name__ == "__main__":
     Label(frame26, text='\n',).pack(side=RIGHT)
     blank_label = Label(frame26, text="", width=5)
     blank_label.pack(side=LEFT)
-    mlb = MultiListbox(frame26, 20, (('IP Address', 15), ('Port', 10), ('Mibdump', 70), ('Status', 15),
-                                    ('PID', 10), ('Sys OID', 35)))
+    mlb = MultiListbox(frame26, 20, (('IP Address', 15), ('Port', 10), ('Mibdump', 60), ('Status', 15),
+                                     ('PID', 10), ('Sys OID', 30), ('Discovery Status', 15)))
+    mlb.pack(expand=YES, fill=BOTH)
     # Remove discovered device
     rm_button = Button(frame27, text=" REMOVE ALL DISCOVERED DEVICES by THIS SIMULATOR ",
                        command=app.rm_device, relief=RAISED, font=("Helvetica", 10))
@@ -840,36 +980,64 @@ if __name__ == "__main__":
     frame35 = Frame(page3)
     frame35.grid(column=1, row=5, sticky=W)
 
-    # Host label
-    blank_label = Label(frame31, text="1.", width=15)
+    blank_label = Label(frame31, text="", width=5)
     blank_label.grid(column=1, row=1, sticky=W+E+N+S)
+    # Host label
+    blank_label = Label(frame31, text="", width=5)
+    blank_label.grid(column=1, row=2, sticky=W+E+N+S)
     ip_label = Label(frame31, text="Host: ", width=5)
-    ip_label.grid(column=2, row=1, sticky=W+E+N+S)
+    ip_label.grid(column=2, row=2, sticky=W+E+N+S)
 
     # Host combobox
     ip_combobox = ttk.Combobox(frame31)
-    ip_combobox.grid(column=3, row=1, sticky=W+E+N+S)
+    ip_combobox.grid(column=3, row=2, sticky=W+E+N+S)
     ip_combobox.insert(INSERT, '---')
 
     # Check HOST button
     check_host_button = Button(frame31, text=" CHECK HOSTS ", command=app.get_hosts, relief=RAISED)
-    check_host_button.grid(column=4, row=1, sticky=W+E+N+S)
+    check_host_button.grid(column=4, row=2, sticky=W+E+N+S)
 
     blank_label = Label(frame31, text="", width=5)
-    blank_label.grid(column=5, row=1, sticky=W+E+N+S)
+    blank_label.grid(column=5, row=2, sticky=W+E+N+S)
 
     # Get component button
     get_component_button = Button(frame31, text=" GET DEVICE COMPONENT ",
                                   command=app.get_some_component, relief=RAISED)
-    get_component_button.grid(column=6, row=1, sticky=W+E+N+S)
+    get_component_button.grid(column=6, row=2, sticky=W+E+N+S)
+
+    blank_label = Label(frame31, text="", width=20)
+    blank_label.grid(column=7, row=9, sticky=W + E + N + S)
+
+    # Restart buttons
+    snmp_restart_button = Button(frame31, text=" RESTART SNMPC ", command=app.snmpc_restart, relief=RAISED)
+    snmp_restart_button.grid(column=8, row=2, sticky=W+E+N+S)
+
+    blank_label = Label(frame31, text="", width=5)
+    blank_label.grid(column=9, row=2, sticky=W+E+N+S)
+
+    nis_restart_button = Button(frame31, text=" RESTART NIS_SERVER ", command=app.nis_restart, relief=RAISED)
+    nis_restart_button.grid(column=10, row=2, sticky=W+E+N+S)
 
     blank_label = Label(frame32, text="", width=5)
     blank_label.grid(column=1, row=1, sticky=W+E+N+S)
 
-    # Update button
-    #update_button = Button(frame32, text=" UPDATE PYTHON SIM ",
-    #                       command=app.update_python_sim, relief=RAISED)
-    #update_button.grid(column=2, row=1, sticky=W+E+N+S)
+    # Check missing button
+    check_missing_button = Button(frame32, text=" REFRESH LIST OF MISSING DEVICES ",
+                                  command=app.check_missing, relief=RAISED)
+    check_missing_button.grid(column=2, row=2, sticky=W+E+N+S)
+
+    mlb_2 = MultiListbox(frame32, 20, (('IP Address', 15), ('Port', 10), ('Mibdump', 70), ('Status', 15),
+                                       ('PID', 10), ('Sys OID', 35)))
+    mlb_2.grid(column=2, row=3, sticky=W + E + N + S)
+
+    # Try rediscover button
+    try_rediscover_button = Button(frame32, text=" TRY TO REDISCOVER MISSING DEVICES ",
+                                   command=app.try_rediscover, relief=RAISED)
+    try_rediscover_button.grid(column=2, row=4, sticky=W+E+N+S)
+
+    # Get information and setting
+    app.save_info()
+    app.save_setting()
 
     root.mainloop()
     sys.exit(0)

@@ -1,5 +1,0 @@
-#!/bin/sh
-
-CWD=`pwd`
-CUR_DIR=`dirname $CWD`
-python $CUR_DIR/snmpsim.pyc $*

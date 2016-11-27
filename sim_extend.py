@@ -1,8 +1,10 @@
 from Tkinter import *
-import os, tkMessageBox
+import os
+import tkMessageBox
 import signal
 import subprocess
 from time import sleep
+from uim import UimDevice
 
 
 class SimExtend(object):
@@ -11,8 +13,9 @@ class SimExtend(object):
 
     @staticmethod
     def stop_sim(table):
-        #table_return = []
         for row in table:
+            if not row:
+                continue
             row = list(row)
             if row[4] != '---':
                 pid_current = int(row[4])
@@ -20,22 +23,22 @@ class SimExtend(object):
                 row[4] = '---'
             else:
                 pass
-            #table_return.append(row)
             yield row
-        #os.system('cls')
 
     @staticmethod
-    def snmp_get_sysoid(folder, table):
+    def snmp_get_sysoid(nim_path, username, password, robot_path, folder, table):
         snmpget = os.path.dirname(os.path.abspath(__file__)) + "/" + 'SnmpGet.exe'
         msg_conflict = ''
         log_detail = ''
         sys_oid = '".1.3.6.1.2.1.1.2.0"'
         table = list(table)
-        #table_return = []
-        #print table
+        print table
         for row in table:
+            if not row:
+                continue
             row = list(row)
-            # row: 0 1 2 3 4 5 == IP Port File State PID SysOid
+            print row
+            # row: 0 1 2 3 4 5 6 == IP Port File State PID SysOid D_Status
             if row[4] == '---':
                 filePath = folder + "/" + row[2]
                 if os.path.exists(filePath):
@@ -60,9 +63,13 @@ class SimExtend(object):
                 if row[5] != '---' and row[5] != sys_oid_value and sys_oid_value != '---':
                     msg_conflict += '%s:%s - %s\tMibdump has changed!\n' % (row[0], row[1], row[2])
                 row[5] = sys_oid_value
-            log_add = '%s,%s,%s,%s\n' % (row[0], row[1], row[2], row[5])
+                ip_address = row[0]
+                cmd_get_device = '\"%s/bin/pu.exe\" -u %s -p %s ' \
+                                 '%ssnmpcollector get_snmp_device %s' \
+                                 % (nim_path, username, password, robot_path, ip_address)
+                row[6] = UimDevice().check_state(cmd_get_device, ip_address)
+            log_add = '%s,%s,%s,%s,%s\n' % (row[0], row[1], row[2], row[5], row[6])
             log_detail += log_add
-            #table_return.append(row)
             yield row
         if log_detail:
             log_path = folder + "/" + "List_of_Mibdumps.csv"
@@ -71,7 +78,6 @@ class SimExtend(object):
             log_open.close()
         if msg_conflict != '':
             tkMessageBox.showwarning(title='Conflict!', message=msg_conflict)
-        #return table_return
 
     @staticmethod
     def run_sim(v1, v2c, ranDm, table, folder):
@@ -107,9 +113,10 @@ class SimExtend(object):
             snmpsim_loc = snmpsim_loc + "c"
         log_detail = ""
         log_add = ""
-        #table_return = []
-        table = list(table)
         for row in table:
+            if not row:
+                yield ''
+                continue
             row = list(row)
             state = row[3]
             dump_file = row[2]
@@ -126,7 +133,6 @@ class SimExtend(object):
                     row[3] = 'File Not Found'
                     row[4] = '---'
 
-            #table_return.append(row)
             yield row
             log_add = '%s,%s,%s,%s\n' % (row[0], row[1], row[2], row[5])
             log_detail += log_add
@@ -136,6 +142,5 @@ class SimExtend(object):
             log_open.write(log_detail)
             log_open.close()
             sleep(2)
-        #return table_return, pid
-        #snmp_get_sysoid()
+
 

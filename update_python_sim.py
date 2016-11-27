@@ -2,12 +2,13 @@ import requests
 import os
 import shutil
 import zipfile
-from time import sleep
 
 
 def clean_install():
     folder = os.path.dirname(os.path.abspath(__file__))
     temp_folder = folder + '/Temp'
+    if not os.path.exists(temp_folder):
+        os.mkdir(temp_folder)
     sample_path = temp_folder + "/update_python_sim.sample"
     sample_open = open(sample_path, 'r')
     lines = sample_open.read().split('\n')
@@ -38,6 +39,8 @@ def download_python_sim():
                 latest_version = line.replace(prefix_version, '')
                 if float(latest_version) > float(version):
                     temp_folder = folder + '/Temp'
+                    if not os.path.exists(temp_folder):
+                        os.mkdir(temp_folder)
                     zf_path = temp_folder + '/_Backup_Python_Sim.zip'
                     zf = zipfile.ZipFile(zf_path, 'w')
                     for dir_name, sub_dirs, files in os.walk(folder):
@@ -51,8 +54,6 @@ def download_python_sim():
                     download_link = 'https://www.dropbox.com/sh/znpy5xjvsa4ehya/AAC2_2Di9NzpR5HaABhMOfLia?dl=1'
                     download_archive = requests.get(download_link, stream=True)
                     archive_path = temp_folder + '/Python_Sim.zip'
-                    if not os.path.exists(temp_folder):
-                        os.mkdir(temp_folder)
                     with open(archive_path, 'wb') as archive:
                         shutil.copyfileobj(download_archive.raw, archive)
                     extract_folder = temp_folder + '/Python_Sim'

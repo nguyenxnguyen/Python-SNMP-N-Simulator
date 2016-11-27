@@ -1,4 +1,4 @@
-Python SNMP N-Simulator ver 1.0
+Python SNMP N-Simulator ver 1.1
 ---------------------
 
   [ See the end of this file for info on using the simlaunch.pyw GUI tool ]

@@ -945,8 +945,8 @@ class SnmpOctetString(SnmpVariable):
         return encodeOctetString(self.value)
 
     def _checkValue(self, value):
-	if type(value) != types.StringType:
-            raise SnmplibInvalidData, "Value passed in is invalid for an SNMP OctetString variable."            
+        if type(value) != types.StringType:
+            raise SnmplibInvalidData, "Value passed in is invalid for an SNMP OctetString variable."
         if len(value) > 65535:
             raise SnmplibInvalidData, "String passed in is too large (%s) for an SNMP OctetString variable." % len(value)
 
@@ -964,7 +964,7 @@ class SnmpIpAddress(SnmpVariable):
         return encodeIpAddress(self.value)
 
     def _checkValue(self, value):
-	if type(value) != types.StringType:
+        if type(value) != types.StringType:
             raise SnmplibInvalidData, "Value passed in is invalid for an SNMP IpAddress variable."
         # TODO: Consider putting regex check in here? Make it compiled elsewhere a single time?
 
@@ -982,9 +982,9 @@ class SnmpOid(SnmpVariable):
         return encodeOid(self.value)
 
     def _checkValue(self, value):
-	if type(value) != types.StringType:
-            raise SnmplibInvalidData, "Value passed in is invalid for an SNMP Oid variable."
-        # TODO: Consider putting regex check in here? Make it compiled elsewhere a single time?
+        if type(value) != types.StringType:
+                raise SnmplibInvalidData, "Value passed in is invalid for an SNMP Oid variable."
+            # TODO: Consider putting regex check in here? Make it compiled elsewhere a single time?
 
     def _decode(self, encoded):
         return decodeOid(encoded)
@@ -997,6 +997,7 @@ class SnmpNull(SnmpVariable):
 
     def encode(self):
         return encodeNull()
+
 
 class SnmpOpaque(SnmpVariable):
     def __init__(self, encoded=None):

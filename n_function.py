@@ -2,6 +2,24 @@ import time
 import os
 
 
+def snmp_get(ip, port, oid):
+    snmp_get_file = os.path.dirname(os.path.abspath(__file__)) + "/" + 'SnmpGet.exe'
+    cmd_snmp_get = '\""%s" -q -r:%s -p:%s -t:1 -c:"public" -o:%s' % (snmp_get_file, ip, port, oid)
+    print cmd_snmp_get
+    response = os.popen(cmd_snmp_get).read()
+    response = response.replace('\n', '')
+    if response.__contains__('Timeout'):
+        state = 'Stopped'
+        value = '---'
+    elif response:
+        state = 'Running'
+        value = response
+    else:
+        state = 'Unknown'
+        value = '---'
+    return state, value
+
+
 def timeit(method):
     def timed(*args, **kw):
         ts = time.time()
@@ -23,15 +41,7 @@ def auto_log(message):
     logger.error(message)
 
 
-def catch_exceptions(func):
-    def wrapper(*args, **kw):
-        try:
-            return func(*args, **kw)
-        except Exception, e:
-            # make a popup here with your exception information.
-            print "Error: %s" % e
-            auto_log(e)
-    return wrapper
+
 
 
 

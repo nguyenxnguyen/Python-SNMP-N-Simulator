@@ -2,7 +2,17 @@
   <dictionary name="Nguyennvt-Cert">
     <words>
       <w>asctime</w>
+      <w>deconvert</w>
+      <w>getnex</w>
+      <w>getnext</w>
+      <w>getnexts</w>
       <w>levelname</w>
+      <w>loopback</w>
+      <w>oids</w>
+      <w>snmplib</w>
+      <w>timeticks</w>
+      <w>uptime</w>
+      <w>varbind</w>
     </words>
   </dictionary>
 </component>

@@ -1,6 +1,0 @@
-Extensions
-    SnmpC - restart
-    nis_server - restart
-
-Improve
-    Discover - discover new mibdump

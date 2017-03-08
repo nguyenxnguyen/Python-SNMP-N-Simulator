@@ -1,6 +1,0 @@
-csnmpsim.c
-setup.py
-csnmpsim.egg-info/PKG-INFO
-csnmpsim.egg-info/SOURCES.txt
-csnmpsim.egg-info/dependency_links.txt
-csnmpsim.egg-info/top_level.txt

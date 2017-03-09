@@ -16,7 +16,11 @@ class CAPM(object):
         ssh.connect(server, username=user_name, password=password)
         cmd_1 = 'echo "1" > /proc/sys/net/ipv4/ip_forward'
         ssh.exec_command(cmd_1)
-        real_ip = socket.gethostbyname(socket.getfqdn())
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("google.com.vn", 80))
+        real_ip = (s.getsockname()[0])
+        s.close()
+        #real_ip = socket.gethostbyname(socket.getfqdn())
         for row in table:
             if not row:
                 continue
@@ -35,8 +39,8 @@ class CAPM(object):
         ssh.close()
 
     @staticmethod
-    def check_state(dahost, table):
-        url_devices = 'http://%s:8581/rest/devices/accessible/' % dahost
+    def check_state(da_host, table):
+        url_devices = 'http://%s:8581/rest/devices/accessible/' % da_host
         r_get = requests.get(url_devices)
         tree = ET.ElementTree(ET.fromstring(r_get.content))
         response_root = tree.getroot()
@@ -55,8 +59,8 @@ class CAPM(object):
             yield row
 
     @staticmethod
-    def rm_device(dahost, table):
-        url_devices = 'http://%s:8581/rest/devices/accessible/' % dahost
+    def rm_device(da_host, table):
+        url_devices = 'http://%s:8581/rest/devices/accessible/' % da_host
         r_get = requests.get(url_devices)
         tree = ET.ElementTree(ET.fromstring(r_get.content))
         response_root = tree.getroot()
@@ -74,7 +78,7 @@ class CAPM(object):
             if ip_address in list_ip:
                 list_id[ip_address] = device_id
 
-        url_devices_delete = 'http://%s:8581/rest/devices/accessible/deletelist' % dahost
+        url_devices_delete = 'http://%s:8581/rest/devices/accessible/deletelist' % da_host
         headers = {'Content-Type': 'application/xml'}
         root = ET.Element('DeleteList')
         for i in list_id.keys():
@@ -84,8 +88,8 @@ class CAPM(object):
         r_post = requests.post(url_devices_delete, headers=headers, data=body)
         print r_post.status_code
 
-    def discover(self, dahost, profile, table):
-        url_profile = 'http://%s:8581/rest/discoveryprofiles/' % dahost
+    def discover(self, da_host, profile, table):
+        url_profile = 'http://%s:8581/rest/discoveryprofiles/' % da_host
         r_get = requests.get(url_profile)
         tree = ET.ElementTree(ET.fromstring(r_get.content))
         response_root = tree.getroot()
@@ -108,9 +112,9 @@ class CAPM(object):
             print daDiscoveryProfileId
 
         #daDiscoveryProfileId = '3970'
-        #url_profile = 'http://%s:8581/rest/discoveryprofiles/' % dahost
+        #url_profile = 'http://%s:8581/rest/discoveryprofiles/' % da_host
         if 'daDiscoveryProfileId' in locals():
-            url_profile_id = 'http://%s:8581/rest/discoveryprofiles/%s' % (dahost, daDiscoveryProfileId)
+            url_profile_id = 'http://%s:8581/rest/discoveryprofiles/%s' % (da_host, daDiscoveryProfileId)
             headers = {'Content-Type': 'application/xml'}
             root = ET.Element('DiscoveryProfile')
             root.attrib['version'] = '1.0.0'
@@ -132,7 +136,7 @@ class CAPM(object):
             r_put = requests.put(url_profile_id, headers=headers, data=body)
             print r_put.status_code
             if r_put.status_code == 200:
-                table_return = list(self.check_state(dahost, table))
+                table_return = list(self.check_state(da_host, table))
             else:
                 table_return = table
             return table_return

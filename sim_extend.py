@@ -160,6 +160,6 @@ class SimExtend(object):
             log_open = open(log_path, 'w')
             log_open.write(log_detail)
             log_open.close()
-            sleep(2)
+            sleep(5)
 
 

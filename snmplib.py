@@ -2,27 +2,40 @@
 
 import sys, exceptions, types, struct, re
 
+
 #
 # Exception classes
 #
 class SnmplibError(exceptions.Exception):
     """Main exception class for snmplib\n"""
     pass
+
+
 class SnmplibInvalidData(SnmplibError):
     """Exception class used when invalid data is encountered."""
     pass
+
+
 class SnmplibUnknownTag(SnmplibError):
     """Exception class used when an unknown tag is encountered."""
     pass
+
+
 class SnmplibUnknownType(SnmplibError):
     """Exception class used when an unknown type is encountered."""
     pass
+
+
 class SnmplibNotImplemented(SnmplibError):
     """Exception class used when something unimplemented is called/done."""
     pass
+
+
 class SnmplibGeneralError(SnmplibError):
     """Exception class used in case of general errors."""
     pass
+
+
 class SnmplibTypeMismatch(SnmplibError):
     """Exception class used when something is supposed to be decoded as one type and the data is in fact another."""
     pass
@@ -64,35 +77,35 @@ class SnmplibTypeMismatch(SnmplibError):
 # v2-trap            Context specific/0x02/10       1       0x07/00111  0xa7/10100111
 # v2-report          Context specific/0x02/10       1       0x08/01000  0xa7/10101000
 TAG = {
-    'Integer':        0x02,
-    'Integer32':      0x02,
-    'OctetString':    0x04,
-    'Null':           0x05,
-    'Oid':            0x06,
-    'Sequence':       0x30,
-    'IpAddress':      0x40,
-    'Counter':        0x41,
-    'Counter32':      0x41,
-    'Gauge':          0x42,
-    'Gauge32':        0x42,
-    'Unsigned32':     0x42,    
-    'TimeTicks':      0x43,
-    'Opaque':         0x44,
+    'Integer': 0x02,
+    'Integer32': 0x02,
+    'OctetString': 0x04,
+    'Null': 0x05,
+    'Oid': 0x06,
+    'Sequence': 0x30,
+    'IpAddress': 0x40,
+    'Counter': 0x41,
+    'Counter32': 0x41,
+    'Gauge': 0x42,
+    'Gauge32': 0x42,
+    'Unsigned32': 0x42,
+    'TimeTicks': 0x43,
+    'Opaque': 0x44,
     # TODO: Decide if bits type should be in here    
-    'Counter64':      0x46,
-# SNMP PDU types
-    'GetRequest':     0xa0,
+    'Counter64': 0x46,
+    # SNMP PDU types
+    'GetRequest': 0xa0,
     'GetNextRequest': 0xa1,
-    'GetResponse':    0xa2,
-    'SetRequest':     0xa3,
-    'Trap':           0xa4,
+    'GetResponse': 0xa2,
+    'SetRequest': 0xa3,
+    'Trap': 0xa4,
     'GetBulkRequest': 0xa5,
-    'InformRequest':  0xa6,
-    'V2Trap':         0xa7,
-    'V2Report':       0xa8,
-    'NoSuchObject':   0x80,
+    'InformRequest': 0xa6,
+    'V2Trap': 0xa7,
+    'V2Report': 0xa8,
+    'NoSuchObject': 0x80,
     'NoSuchInstance': 0x81,
-    'EndOfMibView':   0x82    
+    'EndOfMibView': 0x82
 }
 
 # Reverse mappings for tags above. Note that some things are indistinguishable from others...this
@@ -110,7 +123,7 @@ TYPE = {
     0x44: 'Opaque',
     # TODO: Decide if bits type should be in here
     0x46: 'Counter64',
-# SNMP PDUs
+    # SNMP PDUs
     0xa0: 'GetRequest',
     0xa1: 'GetNextRequest',
     0xa2: 'GetResponse',
@@ -125,12 +138,12 @@ TYPE = {
     0x82: 'EndOfMibView'
 }
 
-
 #
 # Low level SNMP functions
 #
 
 oidRe = re.compile(r'^\.\d\.\d+(\.\d+)*$')
+
 
 def encodeTag(name):
     """Return ASN.1 tag byte given snmplib tag string identifier ('Counter32', 'Unsigned32', etc).
@@ -155,7 +168,7 @@ def decodeSequence(encoded):
     """Function to decode a sequence and return (_type, encodedPieces):
        _type         = 'Integer32', 'OctetString', etc
        encodedPieces = blobs of individual BER encoded contents of sequence
-    """ 
+    """
     #  (_type, encodedPieces) = decodeSequence(encoded)
     (seqType, length, data, allData, remainder) = decode(encoded)
     # Operate on payload of sequence
@@ -165,7 +178,7 @@ def decodeSequence(encoded):
         (_type, length, data, allData, remainder) = decode(remainder)
         blobs.append(allData)
     return (seqType, blobs)
-        
+
 
 def encodeInteger32(integer):
     """Encode SNMP Integer32 data type (valid range is -2147483648 to 2147483647)
@@ -178,8 +191,8 @@ def encodeInteger32(integer):
     # TODO: Make this error checked better? Maybe catch OverFlowError if pack fails and
     #       raise appropriate snmplib error?
     encodedVal = struct.pack(">i", integer)
-#    while len(encodedVal) > 1 and ord(encodedVal[0]) == 0:
-#        encodedVal = encodedVal[1:]        
+    #    while len(encodedVal) > 1 and ord(encodedVal[0]) == 0:
+    #        encodedVal = encodedVal[1:]
     return encodeTag('Integer32') + encodeLength(len(encodedVal)) + encodedVal
 
 
@@ -193,8 +206,8 @@ def decodeInteger32(packet):
     # Decode length (get length of data, and size of length, so we can skip over it
     (length, sizeOfLength) = decodeLength(packet[1:])
     start = sizeOfLength + 1
-    encodedInt = packet[start:start+length]
-    
+    encodedInt = packet[start:start + length]
+
     if length > 4:
         raise SnmplibInvalidData, "Value is encoded with too many bytes to be a valid Integer32 (length=%s)." % length
     if length != 4:
@@ -203,7 +216,7 @@ def decodeInteger32(packet):
             padByte = 0xff
         else:
             padByte = 0x00
-        encodedInt = chr(padByte) * (4-length) + encodedInt
+        encodedInt = chr(padByte) * (4 - length) + encodedInt
 
     return struct.unpack(">i", encodedInt)[0]
 
@@ -219,7 +232,7 @@ def decodeUnsigned32(packet):
     """
     # Make sure data types match
     if packet[0] != encodeTag('Unsigned32'):
-        raise SnmplibTypeMismatch, "Attempted decoding of non-Unsigned32 as Unsigned32 (tag=%02x)." % ord(packet[0])    
+        raise SnmplibTypeMismatch, "Attempted decoding of non-Unsigned32 as Unsigned32 (tag=%02x)." % ord(packet[0])
     return _decodeUnsigned(packet)
 
 
@@ -264,7 +277,7 @@ def decodeGauge32(packet):
     """
     # Make sure data types match
     if packet[0] != encodeTag('Gauge32'):
-        raise SnmplibTypeMismatch, "Attempted decoding of non-Gauge32 as Gauge32 (tag=%02x)." % ord(packet[0])     
+        raise SnmplibTypeMismatch, "Attempted decoding of non-Gauge32 as Gauge32 (tag=%02x)." % ord(packet[0])
     return _decodeUnsigned(packet)
 
 
@@ -279,7 +292,7 @@ def decodeTimeTicks(packet):
     """
     # Make sure data types match
     if packet[0] != encodeTag('TimeTicks'):
-        raise SnmplibTypeMismatch, "Attempted decoding of non-TimeTicks as TimeTicks (tag=%02x)." % ord(packet[0])     
+        raise SnmplibTypeMismatch, "Attempted decoding of non-TimeTicks as TimeTicks (tag=%02x)." % ord(packet[0])
     return _decodeUnsigned(packet)
 
 
@@ -294,7 +307,7 @@ def decodeOctetString(packet):
     (length, size) = decodeLength(packet[1:])
 
     # Return the octets string
-    return packet[size+1:size+length+1]
+    return packet[size + 1:size + length + 1]
 
 
 def decodeIpAddress(packet):
@@ -324,7 +337,7 @@ def encodeOid(oid):
     encoded = ''
     # Encode first two bytes into a single byte (required)
     first, second = oids[:2]
-    encoded = encoded + chr(first*40+second)
+    encoded = encoded + chr(first * 40 + second)
     oids = oids[2:]
     for num in oids:
         if num <= 127:
@@ -374,12 +387,12 @@ def decodeOid(packet):
     chunk = ""
     while len(data) != 0:
         octet = data[0]
-        data = data[1:]        
+        data = data[1:]
         if ord(octet) & 0x80:
-            octet = chr( ord(octet) & 0x7f)
+            octet = chr(ord(octet) & 0x7f)
             chunk = chunk + octet
         else:
-            chunk = chunk + octet            
+            chunk = chunk + octet
             # If 8th bit is not set it means no more octets follow for this suboid        
             chunks.append(chunk)
             chunk = ""
@@ -424,6 +437,7 @@ def decodeOpaque(packets):
     """
     raise SnmplibNotImplemented, "SNMP OPAQUE data type not implemented yet."
 
+
 def number(string):
     """Return either an int or a long using the string passed in. Do conversion
         on basis of whether val would be too big to store as a regular int.
@@ -444,10 +458,11 @@ class SnmpDataType:
        strings below for what they should do):
            encode()
     """
+
     def __init__(self):
         """This method actually won't ever be used...it's more of a placeholder to show that type should exist in all
            subclasses, though this isn't enforced in Python.
-        """ 
+        """
         self.type = None
 
     def encode(self):
@@ -462,10 +477,11 @@ class SnmpSequence(SnmpDataType):
     """General SNMP datatype class that all other types of sequences inherit from. Subclasses should override
        various methods as needed.
     """
+
     def __init__(self, encoded=None):
         """Initialize attributes and if a set of items are passed in, add them to the sequence after using the
            _checkItems() method to make sure they meet the appropriate criteria.
-        """ 
+        """
         self.type = 'Sequence'
         self.items = []
         if encoded != None:
@@ -478,18 +494,18 @@ class SnmpSequence(SnmpDataType):
         # If it's a list, add each thing.
         if type(items) == types.ListType or type(items) == types.TupleType:
             for item in items:
-#                if type(item) != types.InstanceType:
+                #                if type(item) != types.InstanceType:
                 if not isinstance(item, SnmpDataType):
                     print "item is [%s]" % item
                     raise SnmplibInvalidData, "Invalid item in sequence--items must all be SNMP datatype class " + \
-                          "instances of some type."
+                                              "instances of some type."
                 self.items.append(item)
-        # If it's just a single thing, just add it
-#        elif type(items) == types.InstanceType:
+                # If it's just a single thing, just add it
+            #        elif type(items) == types.InstanceType:
         elif isinstance(items, SnmpDataType):
-                self.items.append(items)
+            self.items.append(items)
         else:
-            raise SnmplibInvalidData, "add(): Takes a single SNMP object or a list of SNMP objects."            
+            raise SnmplibInvalidData, "add(): Takes a single SNMP object or a list of SNMP objects."
 
     def encode(self):
         """Check that the items meet the appropriate criteria, encode them using their encode() methods,
@@ -502,30 +518,30 @@ class SnmpSequence(SnmpDataType):
         return encodeASequence(self.type, encoded)
 
     def _decode(self, encoded):
-            _type = decodeTag(encoded[0])
-            # TODO: Figure out how this check will work with subclasses that have different types (pdus)
-            #if _type != 'Sequence':
-            #    raise SnmplibInvalidData, "Can't create sequence from encoded non-sequence (type=%s)" % _type
-            (_type, encodedPieces) = decodeSequence(encoded)
-            objects = []
-            for blob in encodedPieces:
-                _type = decodeTag(blob[0])
-                obj = DATA_TYPE_CLASS[_type](blob)
-                objects.append(obj)
-            self._checkItems(objects)
-            return objects
+        _type = decodeTag(encoded[0])
+        # TODO: Figure out how this check will work with subclasses that have different types (pdus)
+        # if _type != 'Sequence':
+        #    raise SnmplibInvalidData, "Can't create sequence from encoded non-sequence (type=%s)" % _type
+        (_type, encodedPieces) = decodeSequence(encoded)
+        objects = []
+        for blob in encodedPieces:
+            _type = decodeTag(blob[0])
+            obj = DATA_TYPE_CLASS[_type](blob)
+            objects.append(obj)
+        self._checkItems(objects)
+        return objects
 
     def _checkItems(self, items):
         # Check that we are being passed something that's likely to be an SNMP variable instance
         for item in items:
-#            if type(item) != types.InstanceType:
+            #            if type(item) != types.InstanceType:
             if not isinstance(item, SnmpDataType):
                 raise SnmplibInvalidData, "Sequences can only contain instances of SNMP datatypes."
 
 
 class SnmpMessage(SnmpSequence):
     def __init__(self, encoded=None):
-#        print "[instantiating %s]" % self
+        #        print "[instantiating %s]" % self
         SnmpSequence.__init__(self, encoded)
         if not encoded:
             # Initialize items[0], items[1], and items[2] to be correct objects for an SNMP sequence
@@ -549,9 +565,9 @@ class SnmpMessage(SnmpSequence):
             raise SnmplibInvalidData, "An SnmpInteger32 instance (the version) must be the first thing in an SNMP message."
         if items[1].type != 'OctetString':
             raise SnmplibInvalidData, "An SnmpOctetString instance (the community string) must be the second " + \
-                  "thing in an SNMP message."
+                                      "thing in an SNMP message."
         if items[2].type != 'GetRequest' and items[2].type != 'GetNextRequest' and items[2].type != 'GetResponse' \
-           and items[2].type != 'SetRequest' and items[2].type != 'GetBulkRequest':
+                and items[2].type != 'SetRequest' and items[2].type != 'GetBulkRequest':
             raise SnmplibInvalidData, "An SnmpPdu instance (containing the Pdu) must be the third thing in an SNMP message."
 
 
@@ -559,11 +575,11 @@ class SnmpV1TrapPdu(SnmpSequence):
     def __init__(self, encoded=None):
         raise SnmplibNotImplemented, "SnmpV1TrapPdu support not yet implemented."
 
-    
+
 class SnmpV1Pdu(SnmpSequence):
     def __init__(self, encoded=None):
         if not encoded:
-            SnmpSequence.__init__(self, encoded)                        
+            SnmpSequence.__init__(self, encoded)
             self.type = 'GetRequest'
             self.requestId = SnmpInteger32()
             self.requestId.setValue(1)
@@ -577,7 +593,7 @@ class SnmpV1Pdu(SnmpSequence):
             # Grab varbind, since this has to be treated specially. Let everything else get decoded by SnmpSequence._decode()
             _type = decodeTag(encoded[0])
             if _type != 'GetRequest' and _type != 'GetNextRequest' and _type != 'GetResponse' and _type != 'SetRequest':
-                raise SnmplibInvalidData, "Can't create sequence from encoded non-sequence (type=%s)" % _type                
+                raise SnmplibInvalidData, "Can't create sequence from encoded non-sequence (type=%s)" % _type
             (_type, pieces) = decodeSequence(encoded)
             if len(pieces) != 4:
                 raise SnmplibInvalidData, "Incorrect number of variables for SNMPv1 PDU in sequence (%s)." % len(pieces)
@@ -589,7 +605,7 @@ class SnmpV1Pdu(SnmpSequence):
             self.errorIndex = self.items[2]
             # Overwrite the value that was there...it won't be right since a varbind needs to be decoded different
             # than a sequence.
-            self.items[3]= SnmpVarbind(varbind) 
+            self.items[3] = SnmpVarbind(varbind)
             self.varbind = self.items[3]
 
     def _checkItems(self, items):
@@ -613,7 +629,7 @@ class SnmpV2GetBulkPdu(SnmpSequence):
         # maxRepetitions = ...
         # varbind = ...
         if not encoded:
-            SnmpSequence.__init__(self, encoded)                        
+            SnmpSequence.__init__(self, encoded)
             self.type = 'GetBulkRequest'
             self.requestId = SnmpInteger32()
             self.requestId.setValue(1)
@@ -631,7 +647,7 @@ class SnmpV2GetBulkPdu(SnmpSequence):
             (_type, pieces) = decodeSequence(encoded)
             if len(pieces) != 4:
                 raise SnmplibInvalidData, "Incorrect number of variables for SNMPv2 GetBulk PDU in sequence (%s)." \
-                      % len(pieces)
+                                          % len(pieces)
             varbind = pieces[3]
             SnmpSequence.__init__(self, encoded)
             self.type = decodeTag(encoded[0])
@@ -640,7 +656,7 @@ class SnmpV2GetBulkPdu(SnmpSequence):
             self.maxRepetitions = self.items[2]
             # Overwrite the value that was there...it won't be right since a varbind needs to be decoded different
             # than a sequence.
-            self.items[3]= SnmpVarbind(varbind) 
+            self.items[3] = SnmpVarbind(varbind)
             self.varbind = self.items[3]
 
     def _checkItems(self, items):
@@ -659,7 +675,7 @@ class SnmpV2GetBulkPdu(SnmpSequence):
 class SnmpV2Pdu(SnmpSequence):
     def __init__(self, encoded=None):
         if not encoded:
-            SnmpSequence.__init__(self, encoded)                        
+            SnmpSequence.__init__(self, encoded)
             self.type = 'GetRequest'
             self.requestId = SnmpInteger32()
             self.requestId.setValue(1)
@@ -674,7 +690,7 @@ class SnmpV2Pdu(SnmpSequence):
             # TODO: Add support for other v2 pdu types
             _type = decodeTag(encoded[0])
             if _type != 'GetRequest' and _type != 'GetNextRequest' and _type != 'GetResponse' and _type != 'SetRequest':
-                raise SnmplibInvalidData, "Can't create sequence from encoded non-sequence (type=%s)" % _type                
+                raise SnmplibInvalidData, "Can't create sequence from encoded non-sequence (type=%s)" % _type
             (_type, pieces) = decodeSequence(encoded)
             if len(pieces) != 4:
                 raise SnmplibInvalidData, "Incorrect number of variables for SNMPv2 PDU in sequence (%s)." % len(pieces)
@@ -686,7 +702,7 @@ class SnmpV2Pdu(SnmpSequence):
             self.errorIndex = self.items[2]
             # Overwrite the value that was there...it won't be right since a varbind needs to be decoded different
             # than a sequence.
-            self.items[3]= SnmpVarbind(varbind) 
+            self.items[3] = SnmpVarbind(varbind)
             self.varbind = self.items[3]
 
     def _checkItems(self, items):
@@ -711,17 +727,18 @@ class SnmpV2TrapPdu(SnmpSequence):
     def __init__(self, encoded=None):
         raise SnmplibNotImplemented, "SnmpV2TrapPdu support not yet implemented."
 
+
 class SnmpV2ReportPdu(SnmpSequence):
     def __init__(self, encoded=None):
         raise SnmplibNotImplemented, "SnmpV2ReportPdu support not yet implemented."
 
-    
+
 class SnmpVarbind(SnmpSequence):
     def _checkItems(self, items):
         if len(items) < 1:
             raise SnmplibInvalidData, "A varbind must have at least a single variable in it to be encoded."
         for item in items:
-#            if type(item) != types.InstanceType:
+            #            if type(item) != types.InstanceType:
             if not isinstance(item, SnmpVariable):
                 raise SnmplibInvalidData, "SNMP varbinds must contain only SNMP variable instances."
             if item.oid == None:
@@ -746,7 +763,7 @@ class SnmpVarbind(SnmpSequence):
             var = createDataTypeObj(innerChunks[1])
             var.oid = oid
             objects.append(var)
-        return objects        
+        return objects
 
     def encode(self):
         self._checkItems(self.items)
@@ -754,16 +771,17 @@ class SnmpVarbind(SnmpSequence):
         for item in self.items:
             encoded = encoded + encodeSequence(item.encodeOid() + item.encode())
         return encodeSequence(encoded)
-        
+
 
 class SnmpVariable(SnmpDataType):
-    #TODO: Consider calling _checkValue() before encoding? Would avoid any weird slip ups.
+    # TODO: Consider calling _checkValue() before encoding? Would avoid any weird slip ups.
     """General SnmpVariable class that defines behavior for SNMP variables. Subclasses should implement the
        following methods (see doc strings below for what they should do):
            _checkValue()
            _decode()
            encode()
     """
+
     def __init__(self, encoded=None):
         """Set various attributes to None, initially. If an encoded variable was passed in, decode it
            and use the value for this variable.
@@ -790,9 +808,9 @@ class SnmpVariable(SnmpDataType):
     def encode(self):
         """This function does nothing in this class. When implemented in subclasses, it should BER encode the
            value in .value and return the binary string representing the encoded form.
-        """ 
+        """
         pass
-    
+
     def _checkValue(self, value):
         """This function does nothing in this class. When implemented in subclasses, it should check
            that the type and value of the value passed in are valid for the particular SNMP datatype
@@ -816,15 +834,15 @@ class SnmpInteger32(SnmpVariable):
     def encode(self):
         self._checkValue(self.value)
         return encodeInteger32(self.value)
-    
-    def _checkValue(self, value):    
+
+    def _checkValue(self, value):
         if type(value) != types.IntType and type(value) != types.LongType:
             raise SnmplibInvalidData, "Value passed in is invalid for an SNMP Integer variable."
         if value < -2147483648L:
             raise SnmplibInvalidData, "Value passed in (%s) is too small for an SNMP Integer variable." % value
         if value > 2147483647L:
             raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP Integer variable." % value
- 
+
     def _decode(self, encoded):
         return decodeInteger32(encoded)
 
@@ -837,18 +855,18 @@ class SnmpUnsigned32(SnmpVariable):
     def encode(self):
         self._checkValue(self.value)
         return encodeUnsigned32(self.value)
-    
-    def _checkValue(self, value):    
+
+    def _checkValue(self, value):
         if type(value) != types.IntType and type(value) != types.LongType:
             raise SnmplibInvalidData, "Value passed in is invalid for an SNMP Unsigned32 variable."
         if value < 0:
             raise SnmplibInvalidData, "Value passed in (%s) is too small for an SNMP Unsigned32 variable." % value
-        if  value > 4294967295L:
-            raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP Unsigned32 variable." % value            
- 
+        if value > 4294967295L:
+            raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP Unsigned32 variable." % value
+
     def _decode(self, encoded):
         return decodeUnsigned32(encoded)
-    
+
 
 class SnmpCounter32(SnmpVariable):
     def __init__(self, encoded=None):
@@ -858,15 +876,15 @@ class SnmpCounter32(SnmpVariable):
     def encode(self):
         self._checkValue(self.value)
         return encodeCounter32(self.value)
-    
-    def _checkValue(self, value):    
+
+    def _checkValue(self, value):
         if type(value) != types.IntType and type(value) != types.LongType:
             raise SnmplibInvalidData, "Value passed in is invalid for an SNMP Counter32 variable."
         if value < 0:
             raise SnmplibInvalidData, "Value passed in (%s) is too small for an SNMP Counter32 variable." % value
-        if  value > 4294967295L:
-            raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP Counter32 variable." % value            
- 
+        if value > 4294967295L:
+            raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP Counter32 variable." % value
+
     def _decode(self, encoded):
         return decodeCounter32(encoded)
 
@@ -879,15 +897,15 @@ class SnmpCounter64(SnmpVariable):
     def encode(self):
         self._checkValue(self.value)
         return encodeCounter64(self.value)
-    
-    def _checkValue(self, value):    
+
+    def _checkValue(self, value):
         if type(value) != types.IntType and type(value) != types.LongType:
             raise SnmplibInvalidData, "Value passed in is invalid for an SNMP Counter64 variable."
         if value < 0:
             raise SnmplibInvalidData, "Value passed in (%s) is too small for an SNMP Counter64 variable." % value
-        if  value > 18446744073709551615L:
-            raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP Counter64 variable." % value            
- 
+        if value > 18446744073709551615L:
+            raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP Counter64 variable." % value
+
     def _decode(self, encoded):
         return decodeCounter64(encoded)
 
@@ -900,18 +918,17 @@ class SnmpGauge32(SnmpVariable):
     def encode(self):
         self._checkValue(self.value)
         return encodeGauge32(self.value)
-    
+
     def _checkValue(self, value):
         if type(value) != types.IntType and type(value) != types.LongType:
-            raise SnmplibInvalidData, "Value passed in is invalid for an SNMP Gauge32 variable."        
+            raise SnmplibInvalidData, "Value passed in is invalid for an SNMP Gauge32 variable."
         if value < 0:
             raise SnmplibInvalidData, "Value passed in (%s) is too small for an SNMP Gauge32 variable." % value
-        if  value > 4294967295L:
-            raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP Gauge32 variable." % value            
+        if value > 4294967295L:
+            raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP Gauge32 variable." % value
 
- 
     def _decode(self, encoded):
-        return decodeGauge32(encoded)    
+        return decodeGauge32(encoded)
 
 
 class SnmpTimeTicks(SnmpVariable):
@@ -922,19 +939,19 @@ class SnmpTimeTicks(SnmpVariable):
     def encode(self):
         self._checkValue(self.value)
         return encodeTimeTicks(self.value)
-    
+
     def _checkValue(self, value):
         if type(value) != types.IntType and type(value) != types.LongType:
-            raise SnmplibInvalidData, "Value passed in is invalid for an SNMP TimeTicks variable."        
+            raise SnmplibInvalidData, "Value passed in is invalid for an SNMP TimeTicks variable."
         if value < 0:
             raise SnmplibInvalidData, "Value passed in (%s) is too small for an SNMP TimeTicks variable." % value
-        if  value > 4294967295L:
-            raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP TimeTicks variable." % value            
- 
+        if value > 4294967295L:
+            raise SnmplibInvalidData, "Value passed in (%s) is too large for an SNMP TimeTicks variable." % value
+
     def _decode(self, encoded):
         return decodeTimeTicks(encoded)
 
-    
+
 class SnmpOctetString(SnmpVariable):
     def __init__(self, encoded=None):
         SnmpVariable.__init__(self, encoded)
@@ -948,7 +965,8 @@ class SnmpOctetString(SnmpVariable):
         if type(value) != types.StringType:
             raise SnmplibInvalidData, "Value passed in is invalid for an SNMP OctetString variable."
         if len(value) > 65535:
-            raise SnmplibInvalidData, "String passed in is too large (%s) for an SNMP OctetString variable." % len(value)
+            raise SnmplibInvalidData, "String passed in is too large (%s) for an SNMP OctetString variable." % len(
+                value)
 
     def _decode(self, encoded):
         return decodeOctetString(encoded)
@@ -966,7 +984,7 @@ class SnmpIpAddress(SnmpVariable):
     def _checkValue(self, value):
         if type(value) != types.StringType:
             raise SnmplibInvalidData, "Value passed in is invalid for an SNMP IpAddress variable."
-        # TODO: Consider putting regex check in here? Make it compiled elsewhere a single time?
+            # TODO: Consider putting regex check in here? Make it compiled elsewhere a single time?
 
     def _decode(self, encoded):
         return decodeIpAddress(encoded)
@@ -983,7 +1001,7 @@ class SnmpOid(SnmpVariable):
 
     def _checkValue(self, value):
         if type(value) != types.StringType:
-                raise SnmplibInvalidData, "Value passed in is invalid for an SNMP Oid variable."
+            raise SnmplibInvalidData, "Value passed in is invalid for an SNMP Oid variable."
             # TODO: Consider putting regex check in here? Make it compiled elsewhere a single time?
 
     def _decode(self, encoded):
@@ -1016,6 +1034,7 @@ class SnmpOpaque(SnmpVariable):
     def _decode(self, encoded):
         return decodeOpaque(encoded)
 
+
 class SnmpNoSuchObject(SnmpVariable):
     def __init__(self, encoded=None):
         SnmpVariable.__init__(self, encoded)
@@ -1033,7 +1052,7 @@ class SnmpNoSuchInstance(SnmpVariable):
 
     def encode(self):
         # Encode like a null but with correct tag.        
-        return encodeTag(self.type) + encodeLength(0)        
+        return encodeTag(self.type) + encodeLength(0)
 
 
 class SnmpEndOfMibView(SnmpVariable):
@@ -1043,47 +1062,48 @@ class SnmpEndOfMibView(SnmpVariable):
 
     def encode(self):
         # Encode like a null but with correct tag.        
-        return encodeTag(self.type) + encodeLength(0)        
+        return encodeTag(self.type) + encodeLength(0)
 
-# TODO: decide if this should be uncommented.
-#   def setValue(self, param):
-#       raise SnmplibGeneralError, "Unable to set value for Null SNMP data type."
+    # TODO: decide if this should be uncommented.
+    #   def setValue(self, param):
+    #       raise SnmplibGeneralError, "Unable to set value for Null SNMP data type."
 
     def _checkValue(self, value):
         pass
 
     def _decode(self, encoded):
-       return decodeNull(encoded)
+        return decodeNull(encoded)
 
-# Data structure that maps type string to corresponding class. 
+
+# Data structure that maps type string to corresponding class.
 DATA_TYPE_CLASS = {
-    'Integer':        SnmpInteger32,
-    'Integer32':      SnmpInteger32,
-    'OctetString':    SnmpOctetString,
-    'Null':           SnmpNull,
-    'Oid':            SnmpOid,
-    'Sequence':       SnmpSequence,
-    'IpAddress':      SnmpIpAddress,
-    'Counter':        SnmpCounter32,
-    'Counter32':      SnmpCounter32,
-    'Gauge':          SnmpGauge32,
-    'Gauge32':        SnmpGauge32,
-    'Unsigned32':     SnmpUnsigned32,
-    'TimeTicks':      SnmpTimeTicks,
-    'Opaque':         SnmpOpaque,
+    'Integer': SnmpInteger32,
+    'Integer32': SnmpInteger32,
+    'OctetString': SnmpOctetString,
+    'Null': SnmpNull,
+    'Oid': SnmpOid,
+    'Sequence': SnmpSequence,
+    'IpAddress': SnmpIpAddress,
+    'Counter': SnmpCounter32,
+    'Counter32': SnmpCounter32,
+    'Gauge': SnmpGauge32,
+    'Gauge32': SnmpGauge32,
+    'Unsigned32': SnmpUnsigned32,
+    'TimeTicks': SnmpTimeTicks,
+    'Opaque': SnmpOpaque,
     'GetBulkRequest': SnmpV2GetBulkPdu,
-    'Counter64':      SnmpCounter64,
-    'GetRequest':     SnmpV1Pdu,
+    'Counter64': SnmpCounter64,
+    'GetRequest': SnmpV1Pdu,
     'GetNextRequest': SnmpV1Pdu,
-    'GetResponse':    SnmpV1Pdu,
-    'SetRequest':     SnmpV1Pdu,
-    'Trap':           SnmpV1TrapPdu,
-    'InformRequest':  SnmpV2InformPdu,
-    'V2Trap':         SnmpV2TrapPdu,
-    'V2Report':       SnmpV2ReportPdu,
-    'NoSuchObject':   SnmpNoSuchObject,
+    'GetResponse': SnmpV1Pdu,
+    'SetRequest': SnmpV1Pdu,
+    'Trap': SnmpV1TrapPdu,
+    'InformRequest': SnmpV2InformPdu,
+    'V2Trap': SnmpV2TrapPdu,
+    'V2Report': SnmpV2ReportPdu,
+    'NoSuchObject': SnmpNoSuchObject,
     'NoSuchInstance': SnmpNoSuchInstance,
-    'EndOfMibView':   SnmpEndOfMibView
+    'EndOfMibView': SnmpEndOfMibView
 }
 
 
@@ -1094,7 +1114,7 @@ def createDataTypeObj(encoded):
     tag = decodeTag(encoded[0])
     obj = DATA_TYPE_CLASS[tag](encoded)
     return obj
-    
+
 
 def inspect(encoded):
     """Function to attempt to figure out what's in a given encoded blob and output info in a human-readable
@@ -1130,9 +1150,9 @@ def decode(encoded):
         multibyte = 0
     else:
         # Multi-byte length. Need to get number of length bytes and decode that many to get length value.
-        multibyte = 1        
+        multibyte = 1
         lengthSize = length1 & 0x7f
-        lengthData = encoded[2:lengthSize-1]
+        lengthData = encoded[2:lengthSize - 1]
         # TODO: Stick this in a loop instead of messing around like this.
         if lengthSize == 1:
             length = ord(encoded[2])
@@ -1142,27 +1162,27 @@ def decode(encoded):
             length = length | ord(encoded[3])
         if lengthSize == 3:
             length = ord(encoded[2])
-            length = length << 8            
+            length = length << 8
             length = ord(encoded[3])
             length = length << 8
             length = length | ord(encoded[4])
         if lengthSize == 4:
             length = ord(encoded[2])
-            length = length << 8            
+            length = length << 8
             length = ord(encoded[3])
             length = length << 8
             length = ord(encoded[4])
-            length = length << 8            
+            length = length << 8
             length = length | ord(encoded[5])
 
     if not multibyte:
-        data = encoded[2:length+2]
-        allData = encoded[:length+2]
-        remainder = encoded[length+2:]
+        data = encoded[2:length + 2]
+        allData = encoded[:length + 2]
+        remainder = encoded[length + 2:]
     else:
-        data = encoded[2+lengthSize:length+lengthSize+2]
-        allData = encoded[:length+2+lengthSize]
-        remainder = encoded[length+2+lengthSize:]
+        data = encoded[2 + lengthSize:length + lengthSize + 2]
+        allData = encoded[:length + 2 + lengthSize]
+        remainder = encoded[length + 2 + lengthSize:]
 
     return (type, length, data, allData, remainder)
 
@@ -1189,7 +1209,7 @@ def inspectMsg(msg, banner="SNMP Message"):
     print
     print "  Varbind"
     print "  -------"
-    
+
     for i in range(0, len(msg.pdu.varbind.items)):
         var = msg.pdu.varbind.items[i]
         print "    var%s" % (i + 1)
@@ -1225,7 +1245,7 @@ def inspectMsgDump(msgDump, banner="SNMP Message"):
     print "  Erorr index:    %s" % msg.pdu.errorIndex.value
     print "    Varbind"
     print "    -------"
-    
+
     for i in range(0, len(msg.pdu.varbind.items)):
         var = msg.pdu.varbind.items[i]
         print "      var%s" % (i + 1)
@@ -1236,6 +1256,7 @@ def inspectMsgDump(msgDump, banner="SNMP Message"):
         print
 
     sys.stdout.flush()
+
 
 def hexStr(binStr):
     str = ''
@@ -1249,7 +1270,7 @@ def hexStr(binStr):
 ##     def __init__(self):
 ##         self.ipAddress = None
 ##         self.port = None
-        
+
 
 
 #    The functions below are derived from code in Ilya Etingof's (ilya@glas.net)
@@ -1295,18 +1316,18 @@ def encodeLength(length):
     elif length < 0xFFFF:
         # Pack it into three octets
         return '%c%c%c' % (0x82, \
-            (length >> 8) & 0xFF, \
-            length & 0xFF)
+                           (length >> 8) & 0xFF, \
+                           length & 0xFF)
     # Three extra bytes required
     elif length < 0xFFFFFF:
         # Pack it into three octets
         return '%c%c%c%c' % (0x83, \
-            (length >> 16) & 0xFF, \
-            (length >> 8) & 0xFF, \
-            length & 0xFF)
+                             (length >> 16) & 0xFF, \
+                             (length >> 8) & 0xFF, \
+                             length & 0xFF)
     # More octets may be added
     else:
-        raise SnmplibNotImplemented, 'Support for 4 or more length bytes is not yet implemented (bytes=%s).' % size    
+        raise SnmplibNotImplemented, 'Support for 4 or more length bytes is not yet implemented (bytes=%s).' % size
 
 
 def decodeLength(packet):
@@ -1320,13 +1341,13 @@ def decodeLength(packet):
 
     # One extra byte length
     if msb and size == 1:
-        return (ord(packet[1]), size+1)
+        return (ord(packet[1]), size + 1)
 
     # Two extra bytes length
     elif msb and size == 2:
         result = ord(packet[1])
         result = result << 8
-        return (result | ord(packet[2]), size+1)
+        return (result | ord(packet[2]), size + 1)
 
     # Three extra bytes length
     elif msb and size == 3:
@@ -1334,7 +1355,7 @@ def decodeLength(packet):
         result = result << 8
         result = result | ord(packet[2])
         result = result << 8
-        return (result | ord(packet[3]), size+1)
+        return (result | ord(packet[3]), size + 1)
 
     else:
         raise SnmplibNotImplemented, 'Support for 4 or more length bytes is not yet implemented (bytes=%s).' % size
@@ -1350,8 +1371,8 @@ def encodeASequence(tag, sequence):
 
     # Return encoded packet
     return encodeTag(tag) + \
-        encodeLength(len(result)) + \
-        result
+           encodeLength(len(result)) + \
+           result
 
 
 def _encodeUnsigned(tag, integer):
@@ -1372,8 +1393,8 @@ def _encodeUnsigned(tag, integer):
         # Stop as everything got packed
         if arg >= -128 and arg < 128:
             return encodeTag(tag) + \
-                encodeLength(len(result)) + \
-                result
+                   encodeLength(len(result)) + \
+                   result
 
         # Move to the next octet
         arg = long(arg / 256)
@@ -1385,14 +1406,14 @@ def _encodeUnsigned(tag, integer):
 def _decodeUnsigned(packet):
     """Decode unsigned integer (Counter32, Gauge32, TimeTicks, or Unsigned32 data types).
     """
-#    # Make sure data types match
-#    if packet[0] != encodeTag('Unsigned32'):
-#        raise SnmplibTypeMismatch, "Attempted decoding of non-Unsigned32 as Unsigned32 (tag=%02x)." % ord(packet[0])     
+    #    # Make sure data types match
+    #    if packet[0] != encodeTag('Unsigned32'):
+    #        raise SnmplibTypeMismatch, "Attempted decoding of non-Unsigned32 as Unsigned32 (tag=%02x)." % ord(packet[0])
     # Unpack the length
     (length, size) = decodeLength(packet[1:])
 
     # Setup an index on the data area
-    index = size+1
+    index = size + 1
 
     # Get the first octet
     result = ord(packet[index])
@@ -1400,7 +1421,7 @@ def _decodeUnsigned(packet):
     result = long(result)
 
     # Concatinate the rest
-    while index < length+size:
+    while index < length + size:
         index = index + 1
         result = result * 256
         result = result + ord(packet[index])
@@ -1423,12 +1444,12 @@ def encodeIpAddress(addr):
 
     # TODO: Just do a single regex validation against ip addr? Be nicer to have a single check
     # instead of two.
-    
+
     # Make sure it is four octets length
     if len(packed) != 4:
-        raise SnmplibInvalidData, "Malformed IP address: " + str(addr)    
+        raise SnmplibInvalidData, "Malformed IP address: " + str(addr)
 
-    # Convert string octets into integer counterparts
+        # Convert string octets into integer counterparts
     # (this is still not immune to octet overflow)
     try:
         packed = map(int, packed)
@@ -1436,13 +1457,13 @@ def encodeIpAddress(addr):
         raise SnmplibInvalidData, "Malformed IP address: " + str(addr)
 
     # Build a result
-    result = '%c%c%c%c' % (packed[0], packed[1],\
+    result = '%c%c%c%c' % (packed[0], packed[1], \
                            packed[2], packed[3])
 
     # Return encoded result
     return encodeTag('IpAddress') + \
-        encodeLength(len(packed)) + \
-        result
+           encodeLength(len(packed)) + \
+           result
 
 
 def encodeNull():
@@ -1456,9 +1477,9 @@ def decodeNull(packet):
     """
     # Make sure data types match
     if packet[0] != encodeTag('Null') and \
-       packet[0] != encodeTag('EndOfMibView') and \
-       packet[0] != encodeTag('NoSuchInstance') and \
-       packet[0] != encodeTag('NoSuchObject'):
+                    packet[0] != encodeTag('EndOfMibView') and \
+                    packet[0] != encodeTag('NoSuchInstance') and \
+                    packet[0] != encodeTag('NoSuchObject'):
         raise SnmplibTypeMismatch, "Attempted decoding of non-Null as Null (tag=%02x)." % ord(packet[0])
 
     # TODO: Decide if this is silly. Would be nice to make sure it's encoded properly (is the length zero or what?
@@ -1468,6 +1489,7 @@ def decodeNull(packet):
 
     # Return None object
     return None
+
 
 def encodeHexStr(str):
     """Create a binary string from a hex string of values separated by spaces

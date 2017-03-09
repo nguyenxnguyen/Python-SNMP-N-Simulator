@@ -1,26 +1,72 @@
 #!/usr/bin/env python
 
-import sys, exceptions, re, types, time, os, traceback
+import sys, exceptions, re, time, os, traceback
 import thread
 import socket
 from select import select
-from snmplib import *
+from snmplib import \
+    SnmpOid,\
+    SnmpTimeTicks,\
+    SnmpOctetString,\
+    SnmpInteger32,\
+    SnmpGauge32,\
+    SnmpCounter32,\
+    SnmpCounter64,\
+    SnmpIpAddress,\
+    SnmpNull,\
+    SnmplibInvalidData,\
+    SnmpMessage,\
+    SnmpNoSuchObject,\
+    SnmpEndOfMibView
+
+# SnmpMessage: for encode and decode snmp message
+
 from n_function import timeit
 
 
-# Place holder for exceptions
-class SnmpSimError(exceptions.Exception): pass
-class SnmpSimDumpError(SnmpSimError): pass
-class SnmpSimUnknownRequest(SnmpSimError): pass
-class MibStoreError(SnmpSimError): pass
-class MibStoreInsertError(MibStoreError): pass
-class MibStoreGetError(MibStoreError): pass     # For both gets and get_nexts
-class MibStoreNoSuchNameError(MibStoreGetError): pass
-class MibStoreNotRetrievable(MibStoreGetError): pass
+# Place holder for extending exceptions
+class SnmpSimError(exceptions.Exception):
+    pass
+
+
+class SnmpSimDumpError(SnmpSimError):
+    pass
+
+
+class SnmpSimUnknownRequest(SnmpSimError):
+    pass
+
+
+class MibStoreError(SnmpSimError):
+    pass
+
+
+class MibStoreInsertError(MibStoreError):
+    pass
+
+
+class MibStoreGetError(MibStoreError):
+    pass  # For both get and get_next
+
+
+class MibStoreNoSuchNameError(MibStoreGetError):
+    pass
+
+
+class MibStoreNotRetrievable(MibStoreGetError):
+    pass
 
 
 SIM_START_TIME = time.time()
-DELTA_APPLY_RATE = 300   # 5 minutes
+DELTA_APPLY_RATE = 300  # 5 minutes
+
+
+def number(string):
+    try:
+        return int(string)
+    except (ValueError, OverflowError):
+        # Unclear on why sometimes it's overflow vs value error, but this should work.
+        return long(string)
 
 
 # Change functions (assigned to variables dynamically)
@@ -45,7 +91,7 @@ def change_counter32_time_based(old_value):
     delta = old_value.delta
     if delta < 10:
         delta = 10
-    old_value.setValue((old_value.initialVal + int(elapsed/DELTA_APPLY_RATE)*delta) % (max_counter32+1))
+    old_value.setValue((old_value.initialVal + int(elapsed / DELTA_APPLY_RATE) * delta) % (max_counter32 + 1))
 
 
 def change_counter64_time_based(old_value):
@@ -59,7 +105,7 @@ def change_counter64_time_based(old_value):
     delta = old_value.delta
     if delta < 10:
         delta = 10
-    old_value.setValue((old_value.initialVal + int(elapsed/DELTA_APPLY_RATE)*delta) % (max_counter64+1))
+    old_value.setValue((old_value.initialVal + int(elapsed / DELTA_APPLY_RATE) * delta) % (max_counter64 + 1))
 
 
 def change_counter32_per_request(old_value):
@@ -91,6 +137,7 @@ def change_counter64_per_request(old_value):
         new_value %= (max_counter64 + 1)
     old_value.setValue(new_value)
 
+
 # This mapping controls which types (in dump) are mapped to which change functions.
 CHANGE = {'Counter': change_counter32_time_based,
           'Counter64': change_counter64_time_based}
@@ -102,32 +149,33 @@ class MibDataStore(object):
        Class to store oids and associated values. Because ultimately only mib variable instances can be retrieved,
        the distinction between mib variables and their instances isn't maintained here--there is only a simple mapping
        between oids and the variables they point to. Use is straightforward--insert values using the insert method and
-       retrieve them using the get or get_next methods. 
-       Logic for understanding nhSnmpTool-formatted dumps is in here too.
+       retrieve them using the get or get_next methods.
+       Logic for understanding SnmpSim-formatted dumps is in here too.
     """
+
     # Dictionary that maps a string data type to the class that should be used for that data.
     def __init__(self):
         self.variable = {}  # oid -> variable hash
-        self.oids = []      # gets populated with all oids, used for inexact getnexts
+        self.oids = []  # gets populated with all oids, used for inexact getnexts
         self.oid_pattern = re.compile(r'^\.\d\.\d+(\.\d+)*$')
         self.exp_pattern = re.compile(r'^(\d\.\d+)e\+(\d+)$')
         self.dictType = type({})
         self.bytes_per_line = 255  # Estimated average bytes per line in dump_file. Used for progress bar.
-        self.verbose = 1
+        self.verbose = 0
         self.CLASS = {
-            'OID':         SnmpOid,
-            'TimeTicks':   SnmpTimeTicks,
+            'OID': SnmpOid,
+            'TimeTicks': SnmpTimeTicks,
             'OctetString': SnmpOctetString,
-            'Integer':     SnmpInteger32,
-            'Gauge':       SnmpGauge32,
-            'Counter':     SnmpCounter32,
-            'Counter64':   SnmpCounter64,
-            'IpAddress':   SnmpIpAddress,
-            'NULL':        SnmpNull
+            'Integer': SnmpInteger32,
+            'Gauge': SnmpGauge32,
+            'Counter': SnmpCounter32,
+            'Counter64': SnmpCounter64,
+            'IpAddress': SnmpIpAddress,
+            'NULL': SnmpNull
         }
 
     def _expand_if_exp(self, value):
-        """Convert something like '2.10453e+11' to '210453000000.0'. nhSnmpTool represents Counter64s
+        """Convert something like '2.10453e+11' to '210453000000.0'. SnmpSim represents Counter64s
            in this format.
         """
         match = self.exp_pattern.search(value)
@@ -135,9 +183,9 @@ class MibDataStore(object):
             (base, exp) = match.groups()
             exp = number(exp)
             number_exp = len(base[2:])
-            # Get rid of '.'            
+            # Get rid of '.'
             new_value = base[0] + base[2:]
-            # Add appropriate number of zeros            
+            # Add appropriate number of zeros
             new_value += '0' * (exp - number_exp)
             # Keep as floating point number for now...we take this out later.
             value = new_value + ".0"
@@ -147,8 +195,8 @@ class MibDataStore(object):
     def load(self, filename):
         """Load mib values from a mib dump file.
         """
-        max_counter32 = (2L**32-1)
-        max_counter64 = (2L**64-1)
+        max_counter32 = (2L ** 32 - 1)
+        max_counter64 = (2L ** 64 - 1)
         # We want to provide a progress bar. Check total size of file
         size = os.path.getsize(filename)
         estimate_vars = size / self.bytes_per_line
@@ -164,7 +212,7 @@ class MibDataStore(object):
         if self.verbose:
             sys.stdout.write("Loading: 0%")
             sys.stdout.flush()
-        last_pct_printed = 0        
+        last_pct_printed = 0
         while 1:
             lines += 1
             line = f.readline()
@@ -195,10 +243,10 @@ class MibDataStore(object):
                 # The smallest possible encode oid is .0.0. SnmpTool represents this as .0.
                 if value == '.0':
                     value = '.0.0'
-                
+
             if value is None:
                 value = ""
-                
+
             elif _type == 'OctetString':
                 try:
                     value = self._convert_octet_string(value)
@@ -211,18 +259,19 @@ class MibDataStore(object):
                     continue
 
             # Update progress bar if needed
-            vars_processed += 1
-            current_pct_progress = int((vars_processed/estimate_vars)*100)
-            if self.verbose and (current_pct_progress > last_pct_printed):
-                if self._print_progress(current_pct_progress, last_pct_printed):
-                    last_pct_printed = current_pct_progress                
+            if self.verbose:
+                vars_processed += 1
+                current_pct_progress = int((vars_processed / estimate_vars) * 100)
+                if current_pct_progress > last_pct_printed:
+                    if self._print_progress(current_pct_progress, last_pct_printed):
+                        last_pct_printed = current_pct_progress
             if oid in self.variable:
                 # It's the second pass, get delta if counter
                 if _type == 'Counter' or _type == 'Counter64':
                     # Store deltas for these types of variables during second pass
                     var = self.get(oid)
                     # Save start value
-                    var.initialVal = var.value                        
+                    var.initialVal = var.value
                     # Calculate delta keeping wrap effect in mind
                     var.delta = long(value) - var.value
                     if var.delta < 0:
@@ -234,8 +283,8 @@ class MibDataStore(object):
                         var.delta = (max_value - var.value) + long(value)
 
                         # Finally, make delta smaller if it's too big
-                        if var.delta*2 >= max_value:
-                            var.delta = number(max_value*0.40)
+                        if var.delta * 2 >= max_value:
+                            var.delta = number(max_value * 0.40)
                     continue
                 else:
                     # Do nothing for others
@@ -250,10 +299,10 @@ class MibDataStore(object):
                 exception = 1
             except (MibStoreInsertError, SnmpSimDumpError), data:
                 exception_type = sys.exc_info()[0]
-                sys.stderr.write("\nUnable to insert value for OID %s (line %s): %s: %s\n" 
+                sys.stderr.write("\nUnable to insert value for OID %s (line %s): %s: %s\n"
                                  % (oid, lines, exception_type, data))
-                exception = 1                
-                
+                exception = 1
+
             if exception == 1:
                 continue
             if oid == '.1.3.6.1.2.1.1.3.0':
@@ -284,7 +333,7 @@ class MibDataStore(object):
                 stop_time = time.time()
                 self._clear_screen()
                 print "Loaded %s variables (%.1f seconds load time)." % (vars_loaded, stop_time - start_time)
-    
+
     @staticmethod
     def _clear_screen():
         """Clear the screen (should work on Windows NT and Unix).
@@ -297,19 +346,19 @@ class MibDataStore(object):
             # Don't do anything if we don't know how
             return
         os.system(cmd)
-    
+
     def _create_variable(self, oid, _type, value):
         """Function to instantiate the appropriate type of snmp variable object based on type. Also
            handles conversion of values so they match what the classes expect (strings converted to ints, etc)
         """
         if _type not in self.CLASS:
-            raise SnmpSimDumpError, "Unknown variable type %s encountered." % _type
+            raise "Unknown variable type %s encountered." % _type, SnmpSimDumpError
         var = self.CLASS[_type]()
         if _type == 'TimeTicks' or _type == 'Integer' or _type == 'Gauge' or _type == 'Counter' or _type == 'Counter64':
             value = long(value)
         if _type == 'TimeTicks':
             # Negative timeticks aren't valid but show up in dumps sometimes when
-            # nhSnmpTool's ints overflow. Just use the absolute value.
+            # SnmpSim's ints overflow. Just use the absolute value.
             if value < 0:
                 value = abs(value)
         var.setValue(value)
@@ -322,11 +371,11 @@ class MibDataStore(object):
         """
         if current >= 100:
             return 0
-        for i in range(last+1, current+1):
+        for i in range(last + 1, current + 1):
             # Print out X% if X is a multiple of 10
             if i % 10 == 0:
-                sys.stdout.write("%s%%" % i)                
-            if ((i % 10)+1) % 3 == 0:
+                sys.stdout.write("%s%%" % i)
+            if ((i % 10) + 1) % 3 == 0:
                 sys.stdout.write(".")
         sys.stdout.flush()
         return 1
@@ -337,29 +386,31 @@ class MibDataStore(object):
         """
         oid = var.oid
         if oid is None:
-            raise MibStoreInsertError, "Variables must have their .oid attribute set to be inserted."            
+            msg_err = "Variables must have their .oid attribute set to be inserted."
+            raise MibStoreInsertError(msg_err)
         if not self.oid_pattern.search(oid):
-            raise MibStoreInsertError, "Bad OID value: %s" % oid
+            msg_err = "Bad OID value: %s" % oid
+            raise MibStoreInsertError(msg_err)
         # Add variable to our data hash
         self.variable[oid] = var
         # Add oid to ordered list of all oids
-        index = self._binary_search(oid, exact=0)
-        self.oids.insert(index, oid)
+        index_oid = self._binary_search(oid, exact=0)
+        self.oids.insert(index_oid, oid)
         # Fill out .next attributes
-        if index + 1 <= (len(self.oids) - 1):
+        if index_oid + 1 <= (len(self.oids) - 1):
             # For this var, if there is a next variable
-            var.next = self.oids[index+1]
-        if index != 0:
+            var.next = self.oids[index_oid + 1]
+        if index_oid != 0:
             # And for var before this one, if there is one.
-            self.variable[self.oids[index-1]].next = oid
+            self.variable[self.oids[index_oid - 1]].next = oid
 
     def get(self, oid, change=0):
-        """Retrieve the mib value associated with an oid. Oid must have previously been inserted into datastored.
-        """
         if not self.oid_pattern.search(oid):
-            raise MibStoreGetError, "Bad OID value: %s" % oid
-        if not self.variable.has_key(oid):
-            raise MibStoreNoSuchNameError, "No such oid %s found." % oid
+            msg_err = "Bad OID value: %s" % oid
+            raise MibStoreGetError(msg_err)
+        if oid not in self.variable:
+            msg_err = "No such oid %s found." % oid
+            raise MibStoreNoSuchNameError(msg_err)
         var = self.variable[oid]
         if change:
             try:
@@ -370,18 +421,20 @@ class MibDataStore(object):
         return var
 
     def get_next(self, oid, change=0):
-        """Retrieve the next mib value from a given spot in the mib tree data struct. Raise an exception if there
+        """Retrieve the next mib value from a given spot in the mib tree data. Raise an exception if there
            isn't a next oid or if the given oid doesn't exist in the data store.
         """
         if not self.oid_pattern.search(oid):
-            raise MibStoreNoSuchNameError, "Bad OID value: %s" % oid
+            msg_err = "Bad OID value: %s" % oid
+            raise MibStoreNoSuchNameError(msg_err)
         # First, see if this oid is an exact oid that exists already. If so, use the .next attr
         # to return the appropriate var, changing it if change=1.
         if oid in self.variable:
             try:
                 var = self.variable[oid].next
             except AttributeError:
-                raise MibStoreNoSuchNameError, "No next oid to retrieve for %s." % oid            
+                msg_err = "No next oid to retrieve for %s." % oid
+                raise MibStoreNoSuchNameError(msg_err)
             if change:
                 try:
                     # Make variable change itself if changeFunction exists
@@ -393,11 +446,12 @@ class MibDataStore(object):
             # Otherwise we need to look for the lexicographical successor of the partial oid given.
             # Do a binary search of the flat list of oids we have to determine the next oid, then
             # just return that.
-            index = self._binary_search(oid)
+            index_oid = self._binary_search(oid)
             length = len(self.oids)
-            if index is None or length == 0 or index == length:
-                raise MibStoreNoSuchNameError, "No next oid to retrieve for %s." % oid
-            next_oid = self.oids[index]
+            if index_oid is None or length == 0 or index_oid == length:
+                msg_err = "No next oid to retrieve for %s." % oid
+                raise MibStoreNoSuchNameError(msg_err)
+            next_oid = self.oids[index_oid]
             var = self.get(next_oid, change)
             return var
 
@@ -416,7 +470,7 @@ class MibDataStore(object):
         if string is None or string == "":
             return ""
         return '-'.join(map((lambda c: repr(ord(c))), string))
-        
+
     def _binary_search(self, oid, exact=0):
         """exact = true:  Return the index of the variable containing the oid passed in, None if not present.
            exact = false: Return the index at which the oid would be inserted at into the list if it were present.
@@ -424,20 +478,20 @@ class MibDataStore(object):
         start = 0
         end = len(self.oids)
         while start < end:
-            mid = (start+end)//2
-#            if oid < self.oids[mid]:
+            mid = (start + end) // 2
+            #            if oid < self.oids[mid]:
             if self._compare_oids(oid, self.oids[mid]) == -1:
                 end = mid
             else:
-                start = mid+1
-        index = start
+                start = mid + 1
+        index_oid = start
         if not exact:
             # Inexact search
-            return index
+            return index_oid
         # Logic for exact search
-        index -= 1  # Back up one to exact match
-        if self.oids[index] == oid:
-            return index
+        index_oid -= 1  # Back up one to exact match
+        if self.oids[index_oid] == oid:
+            return index_oid
         else:
             # print "index=%s, found oid %s != search oid %s" % (index, self.oids[index].oid, oid)
             return None
@@ -459,66 +513,70 @@ class MibDataStore(object):
 
 
 class SnmpSim(object):
-    """SNMP simulator class. Uses MibDataStore class to store data. 
+    """SNMP simulator class. Uses MibDataStore class to store data.
     """
+
     # Load mib from specified file
     def __init__(self):
-        self.verbose = 1
-        self.mib = MibDataStore()
+        self.verbose = 0
+        self.data_store = MibDataStore()
         self.community = 'public'
         self.filename = ''
-        self.v1Mode = 1
-        self.v2Mode = 1
+        self.snmpv1 = 1
+        self.snmpv2 = 1
         self.port = 5000
         self.sock = None
-        self.clientIp = None   # Assume serial/single threaded handling for now
-        self.MAX_MESSAGE_SIZE = 5120
+        self.clientIp = None  # Assume serial/single threaded handling for now
+        self.MAX_MESSAGE_SIZE = 8192
 
         # Options
-        self.minDumpMode = 0
-        self.validIps = []  # If set, only respond to requests from IPs in this list
+        self.valid_ips = []  # If set, only respond to requests from IPs in this list
 
     def load(self, filename):
         """Load file into mib data store.
         """
         self.filename = filename
-        self.mib.load(filename)
+        self.data_store.load(filename)
 
-    def set_verbose(self, verbose):
+    def set_verbose(self, enable_verbose):
         """Set verbose on/off (1/0). Function is used because we want to set it in the
            mib data store too.
         """
-        self.verbose = verbose
-        self.mib.verbose = verbose
+        self.verbose = enable_verbose
+        self.data_store.verbose = enable_verbose
 
     def run(self):
         """Start the simulator (make it bind to a port and handle SNMP requests).
         """
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock = socket.socket(socket.AF_INET,  # Internet
+                                  socket.SOCK_DGRAM)  # UDP
+        udp_ip = ''  # Accept connections from any IPv4 Address
+        udp_port = self.port
         try:
-            self.sock.bind( ('', self.port) )
+            self.sock.bind((udp_ip, udp_port))
         except socket.error, data:
             sys.exit("Error binding to port %s: %s" % (self.port, data[1]))
 
         # version_snmp = ""
-        if self.v1Mode == 0 and self.v2Mode == 0:
-            raise SnmpSimError, "You must specify at least one SNMP version mode."
-        if self.v1Mode and self.v2Mode:
+        if self.snmpv1 == 0 and self.snmpv2 == 0:
+            msg_err = "You must specify at least one SNMP version mode."
+            raise SnmpSimError(msg_err)
+        if self.snmpv1 and self.snmpv2:
             version_snmp = "SNMPv1 and SNMPv2"
         else:
             # Must be only one or the other
-            if self.v1Mode:
+            if self.snmpv1:
                 version_snmp = "SNMPv1"
             else:
                 version_snmp = "SNMPv2"
         if self.verbose:
             print "\nReady to respond to requests in %s mode on UDP port %s." % (version_snmp, self.port)
-            if self.validIps:
-                if len(self.validIps)== 1:
-                    print "(Restricted to the IP address [%s].)" % self.validIps[0]                    
+            if self.valid_ips:
+                if len(self.valid_ips) == 1:
+                    print "(Restricted to the IP address [%s].)" % self.valid_ips[0]
                 else:
-                    print "(Restricted to IP addresses [%s].)" % ', '.join(self.validIps)
-                    
+                    print "(Restricted to IP addresses [%s].)" % ', '.join(self.valid_ips)
+
         while 1:
             try:
                 (read, write, error) = select([self.sock], [], [], 1.0)
@@ -532,10 +590,10 @@ class SnmpSim(object):
             except socket.error, data:
                 print "[* socket error: %s *]" % data
                 continue
-            if self.validIps:
-                if not self.clientIp[0] in self.validIps:
+            if self.valid_ips:
+                if not self.clientIp[0] in self.valid_ips:
                     # Silently ignore requests that aren't from a specific IP, if user wanted this.
-                    continue                        
+                    continue
             try:
                 message = SnmpMessage(data)
             except:
@@ -548,6 +606,7 @@ class SnmpSim(object):
             if message.communityString.value != self.community:
                 sys.stderr.write("Supplied community of %s doesn't match %s\n" % \
                                  (message.communityString.value, self.community))
+                continue
             # request_type = message.pdu.type
             # Handle message. Return response to client.
             response_msg = None
@@ -587,35 +646,36 @@ class SnmpSim(object):
             return None
         origin_vars = msg.pdu.varbind.items[:]
         ver = msg.version.value
-        if ver == 0 and not self.v1Mode:
+        if ver == 0 and not self.snmpv1:
             if self.verbose:
-                print "[Not responding to v1 request (set v1Mode if you want to do this)"
+                print "[Not responding to v1 request (set snmpv1 if you want to do this)"
             return None
-        if ver == 1 and not self.v2Mode:
-            if self.verbose:            
-                print "[Not responding to v2 request (set v2Mode if you want to do this)"
+        if ver == 1 and not self.snmpv2:
+            if self.verbose:
+                print "[Not responding to v2 request (set snmpv2 if you want to do this)"
             return None
 
-        if ver+1 == 1:
+        if ver + 1 == 1:
             # SNMPv1 request
             pdu_type = msg.pdu.type
             if pdu_type == "GetRequest":
                 if self.verbose:
                     oid_string = ', '.join(map((lambda x: x.oid), msg.pdu.varbind.items))
                     if display_ip:
-                        print "[%s: v%s GET request for %s]" % (display_ip, msg.version.value+1, oid_string)
+                        print "[%s: v%s GET request for %s]" % (display_ip, msg.version.value + 1, oid_string)
                     else:
-                        print "[v%s GET request for %s]" % (msg.version.value+1, oid_string)
+                        print "[v%s GET request for %s]" % (msg.version.value + 1, oid_string)
                 for i in range(0, len(msg.pdu.varbind.items)):
                     try:
-                        msg.pdu.varbind.items[i] = self.mib.get(msg.pdu.varbind.items[i].oid, change=ranDmMode)
+                        msg.pdu.varbind.items[i] = self.data_store.get(msg.pdu.varbind.items[i].oid,
+                                                                       change=random_mode)
                     except (MibStoreNotRetrievable, MibStoreNoSuchNameError):
                         if self.verbose:
                             print "  [noSuchName: %s]" % msg.pdu.varbind.items[i].oid
                         msg.pdu.varbind.items = origin_vars
                         msg.pdu.type = 'GetResponse'
                         msg.pdu.errorStatus.setValue(2)
-                        msg.pdu.errorIndex.setValue(i+1)
+                        msg.pdu.errorIndex.setValue(i + 1)
                         return msg
 
                 msg.pdu.type = 'GetResponse'
@@ -624,24 +684,25 @@ class SnmpSim(object):
                 if self.verbose:
                     oid_string = ', '.join(map((lambda x: x.oid), msg.pdu.varbind.items))
                     if display_ip:
-                        print "[%s: v%s GETNEXT request for %s]" % (display_ip, msg.version.value+1, oid_string)
+                        print "[%s: v%s GETNEXT request for %s]" % (display_ip, msg.version.value + 1, oid_string)
                     else:
-                        print "[v%s GETNEXT request for %s]" % (msg.version.value+1, oid_string)
+                        print "[v%s GETNEXT request for %s]" % (msg.version.value + 1, oid_string)
                 for i in range(0, len(msg.pdu.varbind.items)):
                     try:
-                        msg.pdu.varbind.items[i] = self.mib.get_next(msg.pdu.varbind.items[i].oid, change=ranDmMode)
+                        msg.pdu.varbind.items[i] = self.data_store.get_next(msg.pdu.varbind.items[i].oid,
+                                                                            change=random_mode)
                     except MibStoreNoSuchNameError:
                         if self.verbose:
                             print "  [noSuchName: %s]" % msg.pdu.varbind.items[i].oid
-                        msg.pdu.type = 'GetResponse'                                        
+                        msg.pdu.type = 'GetResponse'
                         msg.pdu.errorStatus.setValue(2)
-                        msg.pdu.errorIndex.setValue(i+1)
-                        return msg            
+                        msg.pdu.errorIndex.setValue(i + 1)
+                        return msg
                 msg.pdu.type = 'GetResponse'
                 return msg
             else:
-                raise SnmpSimUnknownRequest, "Unknown/unsupported request type: %s" % pdu_type            
-        elif ver+1 == 2:
+                raise "Unknown/unsupported request type: %s" % pdu_type, SnmpSimUnknownRequest
+        elif ver + 1 == 2:
             # SNMPv2 request
             # Modify to get reports
             pdu_type = msg.pdu.type
@@ -649,13 +710,14 @@ class SnmpSim(object):
                 if self.verbose:
                     oid_string = ', '.join(map((lambda x: x.oid), msg.pdu.varbind.items))
                     if display_ip:
-                        print "[%s: v%s GET request for %s]" % (display_ip, msg.version.value+1, oid_string)
+                        print "[%s: v%s GET request for %s]" % (display_ip, msg.version.value + 1, oid_string)
                     else:
-                        print "[v%s GET request for %s]" % (msg.version.value+1, oid_string)
+                        print "[v%s GET request for %s]" % (msg.version.value + 1, oid_string)
 
                 for i in range(0, len(msg.pdu.varbind.items)):
                     try:
-                        msg.pdu.varbind.items[i] = self.mib.get(msg.pdu.varbind.items[i].oid, change=ranDmMode)
+                        msg.pdu.varbind.items[i] = self.data_store.get(msg.pdu.varbind.items[i].oid,
+                                                                       change=random_mode)
                     except (MibStoreNoSuchNameError, MibStoreNotRetrievable):
                         # Do the v2 thing and just tag missing oids with SnmpNoSuchObject
                         # (we don't differentiate between objects and instances so just use this)
@@ -670,39 +732,40 @@ class SnmpSim(object):
                 if self.verbose:
                     oid_string = ', '.join(map((lambda x: x.oid), msg.pdu.varbind.items))
                     if display_ip:
-                        print "[%s: v%s GETNEXT request for %s]" % (display_ip, msg.version.value+1, oid_string)
+                        print "[%s: v%s GETNEXT request for %s]" % (display_ip, msg.version.value + 1, oid_string)
                     else:
-                        print "[v%s GETNEXT request for %s]" % (msg.version.value+1, oid_string)                    
+                        print "[v%s GETNEXT request for %s]" % (msg.version.value + 1, oid_string)
                 for i in range(0, len(msg.pdu.varbind.items)):
                     try:
-                        msg.pdu.varbind.items[i] = self.mib.get_next(msg.pdu.varbind.items[i].oid, change=ranDmMode)
+                        msg.pdu.varbind.items[i] = self.data_store.get_next(msg.pdu.varbind.items[i].oid,
+                                                                            change=random_mode)
                     except MibStoreNoSuchNameError:
                         # Do the v2 thing and just tag missing oids with SnmpEndOfMibView
                         oid = msg.pdu.varbind.items[i].oid
                         msg.pdu.varbind.items[i] = SnmpEndOfMibView()
-                        msg.pdu.varbind.items[i].oid = oid                        
+                        msg.pdu.varbind.items[i].oid = oid
                         if self.verbose:
-                            print "  [endOfMibView]"                    
+                            print "  [endOfMibView]"
                 msg.pdu.type = 'GetResponse'
                 return msg
             elif pdu_type == 'GetBulkRequest':
                 if self.verbose:
-                    oids = map((lambda x: x.oid), msg.pdu.varbind.items)                    
-                    oid_string = ', '.join(map((lambda x: x.oid), msg.pdu.varbind.items))
+                    oids = map((lambda x: x.oid), msg.pdu.varbind.items)
+                    # oid_string = ', '.join(map((lambda x: x.oid), msg.pdu.varbind.items))
                     for i in range(0, msg.pdu.nonRepeaters.value):
                         oids[i] += "(NR)"
-                    oid_string = ', '.join(oids)                    
+                    oid_string = ', '.join(oids)
                     if display_ip:
                         print "[%s: v%s GETBULK request for %s, nr=%s, mr=%s]" % \
-                              (display_ip, msg.version.value+1, oid_string, 
-                               msg.pdu.nonRepeaters.value, 
+                              (display_ip, msg.version.value + 1, oid_string,
+                               msg.pdu.nonRepeaters.value,
                                msg.pdu.maxRepetitions.value)
                     else:
-                        print "[v%s GETBULK request for %s]" % (msg.version.value+1, oid_string)                                                
-                
-                # Get response msg set up properly
+                        print "[v%s GETBULK request for %s]" % (msg.version.value + 1, oid_string)
+
+                        # Get response msg set up properly
                 response_msg = SnmpMessage()
-                response_msg.version.setValue(1) # v2
+                response_msg.version.setValue(1)  # v2
                 response_msg.communityString.setValue(msg.communityString.value)
                 response_msg.pdu.type = 'GetResponse'
                 response_msg.pdu.requestId.setValue(msg.pdu.requestId.value)
@@ -721,7 +784,7 @@ class SnmpSim(object):
                     for i in range(0, nr):
                         try:
                             # print "  [GETNEXT on %s (NON-REPEATER)]" % msg.pdu.varbind.items[i].oid
-                            var = self.mib.get_next(vb.items[i].oid, change=ranDmMode)
+                            var = self.data_store.get_next(vb.items[i].oid, change=random_mode)
                         except MibStoreNoSuchNameError:
                             # Do the v2 thing and just tag missing oids with SnmpEndOfMibView
                             var = SnmpEndOfMibView()
@@ -741,10 +804,10 @@ class SnmpSim(object):
                         if len(response_varbind.items) >= max_oids:
                             # Catch any weirdo cases where one oid can't be retrieved anymore and throws cycle
                             # off the boundary
-                            break   
+                            break
                         try:
-                            var = self.mib.get_next(oid, change=ranDmMode)
-                            response_varbind.items.append(var)                            
+                            var = self.data_store.get_next(oid, change=random_mode)
+                            response_varbind.items.append(var)
                             tmp_oids.append(var.oid)
                         except MibStoreNoSuchNameError:
                             if self.verbose:
@@ -752,14 +815,14 @@ class SnmpSim(object):
                             var = SnmpEndOfMibView()
                             var.oid = oid
                             response_varbind.items.append(var)
-                    current_oids = tmp_oids[:]    # Do getnexts on oids we got back
+                    current_oids = tmp_oids[:]  # Do getnexts on oids we got back
                     tmp_oids = []
                 return response_msg
             else:
-                raise SnmpSimUnknownRequest, "Unknown/unsupported request type: %s" % pdu_type
+                raise SnmpSimUnknownRequest("Unknown/unsupported request type: %s") % pdu_type
         else:
             if self.verbose:
-                print "[Not responding to v%s request.]" % (ver+1)
+                print "[Not responding to v%s request.]" % (ver + 1)
 
     def _stop(self):
         if self.verbose:
@@ -770,59 +833,57 @@ class SnmpSim(object):
 if __name__ == "__main__":
     usage = "Usage: snmpsim <options> -f <file>\n" + \
             " Options:\n" + \
-            "  -f <file>  = file to use for SNMP data (nhSnmpTool dump file)\n" + \
+            "  -f <file>  = file to use for SNMP data (SnmpSim dump file)\n" + \
             "  -p <port>  = Run simulator on this UDP port\n" + \
             "  -v1        = SNMPv1 enabled (on by default if nothing specified)\n" + \
             "  -v2c       = SNMPv2 enabled\n" + \
-            "  -rd        = Random change OIDs value\n"
+            "  -rd        = Random change OIDs value\n" + \
+            "  -r         = Only response to the specific IP addresses\n"
 
     args = sys.argv[1:]
     if len(args) < 2:
         sys.exit(usage)
+    if '-f' not in args:
+        sys.exit(usage)
     port = 64001
     dump_file = ''
-    v1Mode = 0
-    v2Mode = 0
+    snmpv1 = 0
+    snmpv2 = 0
     verbose = 1
-    ranDmMode = 0
-    validIps = []
-    while len(args):
-        arg = args[0]
-        args = args[1:]
-
+    random_mode = 0
+    valid_ips = []
+    index = 0
+    file_info = 0
+    for arg in args:
+        index += 1
         if arg == '-v1':
-            v1Mode = 1
+            snmpv1 = 1
         elif arg == '-v2c':
-            v2Mode = 1
+            snmpv2 = 1
+        elif arg == '-f' and not file_info:
+            if index >= len(args):
+                sys.exit(usage)
+            dump_file = args[index]
+            file_info = 1
         elif arg == '-p':
-            if not len(args):
+            if index >= len(args):
                 sys.exit(usage)
-            port = args[0]
-            args = args[1:]
-        elif arg == '-f':
-            if not len(args):
-                sys.exit(usage)
-            dump_file = args[0]
-            args = args[1:]
-        elif arg == '-rd':
-            ranDmMode = 1
-        else:
-            sys.exit(usage)
-            
+            port = args[index]
+
     if dump_file == '':
         sys.exit(usage)
-    if v1Mode == 0 and v2Mode == 0:
+    if snmpv1 == 0 and snmpv2 == 0:
         # If neither mode was specified, default to v1
-        v1Mode = 1
+        snmpv1 = 1
 
     if not os.path.exists(dump_file) or not os.path.isfile(dump_file):
         sys.exit("%s doesn't exist or isn't a file. Exiting." % dump_file)
     sim = SnmpSim()
 
-    sim.validIps = validIps
+    sim.valid_ips = valid_ips
     sim.port = int(port)
-    sim.v1Mode = v1Mode
-    sim.v2Mode = v2Mode
+    sim.snmpv1 = snmpv1
+    sim.snmpv2 = snmpv2
     sim.set_verbose(verbose)
     sim.load(dump_file)
 
